@@ -15,14 +15,18 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useTranslation } from "@/components/i18n/language-provider";
+import type { TranslationKey } from "@/i18n/translations";
 
-const items = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transactions", icon: Receipt },
-];
+const items: { href: string; labelKey: TranslationKey; icon: typeof Receipt }[] =
+  [
+    { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+    { href: "/transactions", labelKey: "nav.transactions", icon: Receipt },
+  ];
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { t } = useTranslation();
 
   return (
     <Sidebar collapsible="icon">
@@ -42,16 +46,17 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => {
                 const Icon = item.icon;
+                const label = t(item.labelKey);
                 const active =
                   item.href === "/"
                     ? pathname === "/"
                     : pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
+                    <SidebarMenuButton asChild isActive={active} tooltip={label}>
                       <Link href={item.href}>
                         <Icon />
-                        <span>{item.label}</span>
+                        <span>{label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

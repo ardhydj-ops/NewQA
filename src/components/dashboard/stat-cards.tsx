@@ -5,13 +5,15 @@ import { PiggyBank, TrendingDown, TrendingUp } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "@/components/i18n/language-provider";
 import { getBalanceSummary } from "@/features/action";
 import { formatIDR } from "@/lib/format";
+import type { TranslationKey } from "@/i18n/translations";
 
 type Item = {
   key: "savings" | "totalIncome" | "totalExpense";
-  label: string;
-  caption: string;
+  labelKey: TranslationKey;
+  captionKey: TranslationKey;
   icon: typeof PiggyBank;
   accent: string;
 };
@@ -19,28 +21,29 @@ type Item = {
 const items: Item[] = [
   {
     key: "savings",
-    label: "Savings",
-    caption: "Saving for all time",
+    labelKey: "stat.savings.label",
+    captionKey: "stat.savings.caption",
     icon: PiggyBank,
     accent: "text-emerald-600 dark:text-emerald-400",
   },
   {
     key: "totalIncome",
-    label: "Incomes",
-    caption: "Total Incomes for all time",
+    labelKey: "stat.income.label",
+    captionKey: "stat.income.caption",
     icon: TrendingUp,
     accent: "text-emerald-600 dark:text-emerald-400",
   },
   {
     key: "totalExpense",
-    label: "Expenses",
-    caption: "Total expenses for all time",
+    labelKey: "stat.expense.label",
+    captionKey: "stat.expense.caption",
     icon: TrendingDown,
     accent: "text-emerald-600 dark:text-emerald-400",
   },
 ];
 
 export function StatCards() {
+  const { t } = useTranslation();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["balance-summary"],
     queryFn: getBalanceSummary,
@@ -48,7 +51,7 @@ export function StatCards() {
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
-      {items.map(({ key, label, caption, icon: Icon, accent }) => {
+      {items.map(({ key, labelKey, captionKey, icon: Icon, accent }) => {
         const value = data?.[key] ?? 0;
 
         return (
@@ -58,7 +61,7 @@ export function StatCards() {
                 className={`flex items-center gap-2 text-sm font-medium ${accent}`}
               >
                 <Icon className="size-4" />
-                {label}
+                {t(labelKey)}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -71,7 +74,7 @@ export function StatCards() {
                 <>
                   <div className="text-3xl font-bold tracking-tight">—</div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Gagal memuat data
+                    {t("stat.loadError")}
                   </p>
                 </>
               ) : (
@@ -79,7 +82,9 @@ export function StatCards() {
                   <div className="text-3xl font-bold tracking-tight tabular-nums">
                     {formatIDR(value)}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t(captionKey)}
+                  </p>
                 </>
               )}
             </CardContent>
