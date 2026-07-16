@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, Wallet } from "lucide-react";
+import { ClipboardCheck, LayoutDashboard, Receipt, Wallet } from "lucide-react";
 
 import {
   Sidebar,
@@ -22,6 +22,7 @@ const items: { href: string; labelKey: TranslationKey; icon: typeof Receipt }[] 
   [
     { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
     { href: "/transactions", labelKey: "nav.transactions", icon: Receipt },
+    { href: "/testing-tasks", labelKey: "nav.testingTasks", icon: ClipboardCheck },
   ];
 
 export function AppSidebar() {
