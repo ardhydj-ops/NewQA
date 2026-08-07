@@ -1488,27 +1488,31 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider>
-      <AppSidebar profile={profile} />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="h-4" />
-          <div className="ml-auto flex items-center gap-3">
-            <div className="text-right text-sm">
-              <div className="font-medium">{profile.name}</div>
-              <div className="text-xs text-muted-foreground">{ROLE_LABEL[profile.role]}</div>
+    <TooltipProvider>
+      <SidebarProvider>
+        <AppSidebar profile={profile} />
+        <SidebarInset>
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger />
+            <Separator orientation="vertical" className="h-4" />
+            <div className="ml-auto flex items-center gap-3">
+              <div className="text-right text-sm">
+                <div className="font-medium">{profile.name}</div>
+                <div className="text-xs text-muted-foreground">{ROLE_LABEL[profile.role]}</div>
+              </div>
+              <SignOutButton />
             </div>
-            <SignOutButton />
-          </div>
-        </header>
-        <main className="flex-1 p-6">{children}</main>
-      </SidebarInset>
-      <Toaster />
-    </SidebarProvider>
+          </header>
+          <main className="flex-1 p-6">{children}</main>
+        </SidebarInset>
+        <Toaster />
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }
 ```
+
+Note (found during implementation, not in the original plan text): `SidebarMenuButton`'s `tooltip` prop renders shadcn's `Tooltip`, which throws at runtime ("`Tooltip` must be used within `TooltipProvider`") unless wrapped — add `import { TooltipProvider } from "@/components/ui/tooltip";` and wrap the return value as shown above.
 
 - [ ] **Step 5: Write the `(app)` route group layout**
 
