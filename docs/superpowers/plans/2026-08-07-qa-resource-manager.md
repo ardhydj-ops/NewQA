@@ -4224,15 +4224,20 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
     queryFn: () => getWeeklyDashboard(weekStart),
   });
 
-  const { data: projects } = useQuery({
-    queryKey: ["projects", { approvalStatus: "approved" }],
-    queryFn: () => getProjects({ approvalStatus: "approved" }),
+  // Fetch all projects (not just approved) so pending-project-proposal
+  // allocations can still resolve a project name in the assignments table;
+  // the picker below filters back down to approved-only itself.
+  const { data: allProjects } = useQuery({
+    queryKey: ["projects", {}],
+    queryFn: () => getProjects(),
   });
+  const approvedProjects = (allProjects ?? []).filter((p) => p.approval_status === "approved");
 
   const resources = dashboard?.resourceLoad ?? [];
   const filteredResources = useMemo(
     () => resources.filter((r) => r.profile.name.toLowerCase().includes(search.trim().toLowerCase())),
-    [resources, search],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depend on dashboard (stable query cache reference), not the derived `resources` array literal
+    [dashboard, search],
   );
 
   const selected = resources.find((r) => r.profile.id === selectedUserId) ?? null;
@@ -4310,7 +4315,7 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
                 userName={selected.profile.name}
                 capacityHours={selected.profile.capacity_hours}
                 allocatedHours={selected.allocatedHours}
-                projects={projects ?? []}
+                projects={approvedProjects}
                 role={role}
               />
             ) : (
@@ -4326,7 +4331,7 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
         <AssignmentsTable
           userId={selected.profile.id}
           userName={selected.profile.name}
-          projects={projects ?? []}
+          projects={allProjects ?? []}
           role={role}
           currentProfileId={currentProfileId}
         />
@@ -4335,6 +4340,8 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
   );
 }
 ```
+
+Note (found during implementation): the original draft fetched only `approvalStatus: "approved"` projects here and reused that single list for both the picker and the assignments-table name lookup. That broke the name lookup for allocations that came from a pending *project* proposal (Task 14's `proposeProject` bundle) — their project isn't approved yet, so it wasn't in the list, and the table rendered "—" instead of the project name. Fetch all projects once, derive `approvedProjects` client-side for the picker, and pass the full list to `AssignmentsTable` for lookups, as shown above.
 
 `src/app/(app)/allocations/page.tsx`:
 
