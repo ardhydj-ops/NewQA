@@ -16,20 +16,33 @@ import {
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectTable } from "@/components/projects/project-table";
 import { ProposeProjectDialog } from "@/components/projects/propose-project-dialog";
+import { getApprovedAllocationCountsByProject } from "@/features/allocation-action";
+import { getProducts } from "@/features/product-action";
 import { getProjects } from "@/features/project-action";
-import type { Product, ProjectStatus } from "@/lib/project";
+import type { ProjectStatus } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
 
 export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileRole; currentProfileId: string }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | "">("");
-  const [productFilter, setProductFilter] = useState<Product | "">("");
+  const [productFilter, setProductFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [proposeOpen, setProposeOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["projects", { search, status: statusFilter, product: productFilter }],
-    queryFn: () => getProjects({ search, status: statusFilter, product: productFilter }),
+    queryKey: ["projects", { search, status: statusFilter, product_id: productFilter }],
+    queryFn: () => getProjects({ search, status: statusFilter, product_id: productFilter }),
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => getProducts(),
+  });
+  const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
+
+  const { data: assignmentCounts } = useQuery({
+    queryKey: ["allocation-counts", "approved"],
+    queryFn: () => getApprovedAllocationCountsByProject(),
   });
 
   return (
@@ -71,23 +84,30 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
             <SelectItem value="completed">Completed</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={productFilter || "all"} onValueChange={(v) => setProductFilter(v === "all" ? "" : (v as Product))}>
+        <Select value={productFilter || "all"} onValueChange={(v) => setProductFilter(v === "all" ? "" : v)}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Product" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Products</SelectItem>
-            <SelectItem value="qris_h2h">QRIS H2H</SelectItem>
-            <SelectItem value="qris_bo">QRIS BO</SelectItem>
-            <SelectItem value="qrcb">QRCB</SelectItem>
-            <SelectItem value="pi">PI</SelectItem>
-            <SelectItem value="jv">JV</SelectItem>
-            <SelectItem value="ccw">CCW</SelectItem>
+            {(products ?? []).map((product) => (
+              <SelectItem key={product.id} value={product.id}>
+                {product.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      <ProjectTable rows={data ?? []} isLoading={isLoading} isError={isError} role={role} currentProfileId={currentProfileId} />
+      <ProjectTable
+        rows={data ?? []}
+        isLoading={isLoading}
+        isError={isError}
+        role={role}
+        currentProfileId={currentProfileId}
+        productNameById={productNameById}
+        assignmentCounts={assignmentCounts ?? {}}
+      />
 
       {role === "qa_lead" && <ProjectFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} />}
       {role === "project_manager" && <ProposeProjectDialog open={proposeOpen} onOpenChange={setProposeOpen} />}

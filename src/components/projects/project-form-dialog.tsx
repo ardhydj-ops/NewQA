@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -22,14 +22,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createProject, updateProject } from "@/features/project-action";
-import type { ItemType, Priority, Product, Project, ProjectStatus } from "@/lib/project";
+import { getProducts } from "@/features/product-action";
+import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
 
 type FormState = {
   name: string;
   item_type: ItemType;
   start_date: string;
   end_date: string;
-  product: Product;
+  product_id: string;
   status: ProjectStatus;
   progress_percent: string;
   total_working_hours: string;
@@ -43,7 +44,7 @@ function formFromProject(project?: Project): FormState {
         item_type: project.item_type,
         start_date: project.start_date,
         end_date: project.end_date ?? "",
-        product: project.product,
+        product_id: project.product_id,
         status: project.status,
         progress_percent: String(project.progress_percent),
         total_working_hours: String(project.total_working_hours),
@@ -54,7 +55,7 @@ function formFromProject(project?: Project): FormState {
         item_type: "project",
         start_date: "",
         end_date: "",
-        product: "qris_h2h",
+        product_id: "",
         status: "to_do",
         progress_percent: "0",
         total_working_hours: "",
@@ -74,6 +75,11 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
   const [form, setForm] = useState<FormState>(() => formFromProject(initialValue));
   const queryClient = useQueryClient();
 
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => getProducts(),
+  });
+
   const mutation = useMutation<{ success: true }, Error, void>({
     mutationFn: () => {
       const payload = {
@@ -81,7 +87,7 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
         item_type: form.item_type,
         start_date: form.start_date,
         end_date: form.end_date,
-        product: form.product,
+        product_id: form.product_id,
         status: form.status,
         progress_percent: Number(form.progress_percent),
         total_working_hours: Number(form.total_working_hours),
@@ -157,17 +163,16 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="product">Product</Label>
-              <Select value={form.product} onValueChange={(value) => setForm((f) => ({ ...f, product: value as Product }))}>
+              <Select value={form.product_id} onValueChange={(value) => setForm((f) => ({ ...f, product_id: value }))}>
                 <SelectTrigger id="product" className="w-full">
-                  <SelectValue />
+                  <SelectValue placeholder="Select a product..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="qris_h2h">QRIS H2H</SelectItem>
-                  <SelectItem value="qris_bo">QRIS BO</SelectItem>
-                  <SelectItem value="qrcb">QRCB</SelectItem>
-                  <SelectItem value="pi">PI</SelectItem>
-                  <SelectItem value="jv">JV</SelectItem>
-                  <SelectItem value="ccw">CCW</SelectItem>
+                  {(products ?? []).map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -242,7 +247,7 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
           )}
 
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending || !form.product_id}>
               {mutation.isPending ? "Saving..." : isEdit ? "Save" : "Create item"}
             </Button>
           </DialogFooter>

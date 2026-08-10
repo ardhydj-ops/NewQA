@@ -19,6 +19,7 @@ import {
   rejectAllocationChange,
   rejectProjectProposal,
 } from "@/features/approval-action";
+import { getProducts } from "@/features/product-action";
 import { getProjects } from "@/features/project-action";
 import { formatDate } from "@/lib/format";
 
@@ -45,6 +46,12 @@ export function ApprovalsPageContent() {
     queryFn: () => getProjects({ approvalStatus: "approved" }),
   });
   const projectNameById = new Map((approvedProjects ?? []).map((p) => [p.id, p.name]));
+
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => getProducts(),
+  });
+  const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["approvals"] });
@@ -132,7 +139,7 @@ export function ApprovalsPageContent() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{proposal.name}</span>
-                      <Badge variant="secondary">{proposal.product}</Badge>
+                      <Badge variant="secondary">{productNameById.get(proposal.product_id) ?? "—"}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {formatDate(proposal.start_date)} – {proposal.end_date ? formatDate(proposal.end_date) : "Ongoing"}

@@ -23,8 +23,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getAssignableProfiles } from "@/features/profile-action";
+import { getProducts } from "@/features/product-action";
 import { proposeProject } from "@/features/project-action";
-import type { ItemType, Priority, Product, ProjectStatus } from "@/lib/project";
+import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 
 type AllocationRow = {
   user_id: string;
@@ -48,7 +49,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   const [itemType, setItemType] = useState<ItemType>("project");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [product, setProduct] = useState<Product>("qris_h2h");
+  const [productId, setProductId] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("to_do");
   const [totalWorkingHours, setTotalWorkingHours] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
@@ -60,6 +61,11 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
     queryFn: () => getAssignableProfiles(),
   });
 
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => getProducts(),
+  });
+
   const mutation = useMutation({
     mutationFn: () =>
       proposeProject({
@@ -68,7 +74,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           item_type: itemType,
           start_date: startDate,
           end_date: endDate,
-          product,
+          product_id: productId,
           status,
           progress_percent: 0,
           total_working_hours: Number(totalWorkingHours),
@@ -146,17 +152,16 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="proposal_product">Product</Label>
-              <Select value={product} onValueChange={(value) => setProduct(value as Product)}>
+              <Select value={productId} onValueChange={setProductId}>
                 <SelectTrigger id="proposal_product" className="w-full">
-                  <SelectValue />
+                  <SelectValue placeholder="Select a product..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="qris_h2h">QRIS H2H</SelectItem>
-                  <SelectItem value="qris_bo">QRIS BO</SelectItem>
-                  <SelectItem value="qrcb">QRCB</SelectItem>
-                  <SelectItem value="pi">PI</SelectItem>
-                  <SelectItem value="jv">JV</SelectItem>
-                  <SelectItem value="ccw">CCW</SelectItem>
+                  {(products ?? []).map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -273,7 +278,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending || !productId}>
               {mutation.isPending ? "Submitting..." : "Submit proposal"}
             </Button>
           </DialogFooter>

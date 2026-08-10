@@ -27,20 +27,12 @@ import {
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ProjectAssignmentsDialog } from "@/components/projects/project-assignments-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { deleteProject, withdrawProjectProposal } from "@/features/project-action";
 import { formatDate } from "@/lib/format";
-import type { ItemType, Priority, Product, Project, ProjectStatus } from "@/lib/project";
+import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
-
-const PRODUCT_LABEL: Record<Product, string> = {
-  qris_h2h: "QRIS H2H",
-  qris_bo: "QRIS BO",
-  qrcb: "QRCB",
-  pi: "PI",
-  jv: "JV",
-  ccw: "CCW",
-};
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   to_do: "To Do",
@@ -78,17 +70,28 @@ type ProjectTableProps = {
   isError: boolean;
   role: ProfileRole;
   currentProfileId: string;
+  productNameById: Map<string, string>;
+  assignmentCounts: Record<string, number>;
 };
 
-export function ProjectTable({ rows, isLoading, isError, role, currentProfileId }: ProjectTableProps) {
+export function ProjectTable({
+  rows,
+  isLoading,
+  isError,
+  role,
+  currentProfileId,
+  productNameById,
+  assignmentCounts,
+}: ProjectTableProps) {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  const [viewingProject, setViewingProject] = useState<Project | null>(null);
   const queryClient = useQueryClient();
 
   const canEdit = role === "qa_lead";
   const canPropose = role === "project_manager";
   const showActions = canEdit || canPropose;
-  const columnCount = showActions ? 9 : 8;
+  const columnCount = showActions ? 10 : 9;
 
   const deleteMutation = useMutation({
     mutationFn: deleteProject,
@@ -124,6 +127,7 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
               <TableHead>Priority</TableHead>
               <TableHead className="text-right">Total Hrs</TableHead>
               <TableHead>Progress</TableHead>
+              <TableHead>Assigned</TableHead>
               {showActions && <TableHead className="pr-6 text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -140,6 +144,7 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="ml-auto h-4 w-10" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                   {showActions && <TableCell className="pr-6"><Skeleton className="ml-auto size-8 rounded-md" /></TableCell>}
                 </TableRow>
               ))
@@ -175,7 +180,7 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
                     <Badge variant="outline">{ITEM_TYPE_LABEL[project.item_type]}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{PRODUCT_LABEL[project.product]}</Badge>
+                    <Badge variant="secondary">{productNameById.get(project.product_id) ?? "—"}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{formatDate(project.start_date)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -192,6 +197,16 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
                   <TableCell className="text-right text-sm tabular-nums">{project.total_working_hours}</TableCell>
                   <TableCell>
                     <ProgressBar percent={project.progress_percent} />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 text-sm font-normal"
+                      onClick={() => setViewingProject(project)}
+                    >
+                      {assignmentCounts[project.id] ?? 0} QA{(assignmentCounts[project.id] ?? 0) === 1 ? "" : "s"}
+                    </Button>
                   </TableCell>
                   {showActions && (
                     <TableCell className="pr-6 text-right">
@@ -246,6 +261,17 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
             if (!o) setEditingProject(null);
           }}
           initialValue={editingProject}
+        />
+      )}
+
+      {viewingProject && (
+        <ProjectAssignmentsDialog
+          key={viewingProject.id}
+          project={viewingProject}
+          open
+          onOpenChange={(o) => {
+            if (!o) setViewingProject(null);
+          }}
         />
       )}
 
