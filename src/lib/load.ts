@@ -93,3 +93,39 @@ export function monthlyHoursForProject(
     .filter((a) => a.project_id === projectId)
     .reduce((sum, a) => sum + (a.hours_per_week / 7) * overlapDays(a, month), 0);
 }
+
+/** Inclusive weeks spanned by [startDate, endDate]; always at least 1. */
+export function weeksBetween(startDate: string, endDate: string): number {
+  const days = Math.round((toUTCDate(endDate).getTime() - toUTCDate(startDate).getTime()) / MS_PER_DAY) + 1;
+  return Math.max(1, days / 7);
+}
+
+export type DatedRange = { start_date: string; end_date: string | null };
+
+/** Open-ended-aware overlap test for two arbitrary date intervals (not a fixed week/month). */
+export function rangesOverlap(a: DatedRange, b: DatedRange): boolean {
+  const aEnd = a.end_date ?? "9999-12-31";
+  const bEnd = b.end_date ?? "9999-12-31";
+  return a.start_date <= bEnd && b.start_date <= aEnd;
+}
+
+export type AllocationForOverlapCalc = DatedRange & { user_id: string; project_id: string };
+
+/**
+ * Distinct projects a user has an allocation on that overlaps `candidate`.
+ * `excludeProjectId` avoids double-counting the same project the candidate
+ * itself belongs to (e.g. two roles on one project shouldn't count as 2).
+ */
+export function overlappingProjectCount(
+  allocations: AllocationForOverlapCalc[],
+  userId: string,
+  candidate: DatedRange,
+  excludeProjectId?: string,
+): number {
+  const projectIds = new Set(
+    allocations
+      .filter((a) => a.user_id === userId && a.project_id !== excludeProjectId && rangesOverlap(a, candidate))
+      .map((a) => a.project_id),
+  );
+  return projectIds.size;
+}
