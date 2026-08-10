@@ -11,8 +11,9 @@ import { LoadBar } from "@/components/ui/load-bar";
 import { AllocationForm } from "@/components/allocations/allocation-form";
 import { AssignmentsTable } from "@/components/allocations/assignments-table";
 import { BulkAssignDialog } from "@/components/allocations/bulk-assign-dialog";
-import { getWeeklyDashboard } from "@/features/dashboard-action";
+import { getRangeDashboard, type ResourceLoadRow } from "@/features/dashboard-action";
 import { getProjects } from "@/features/project-action";
+import { getQaGroups } from "@/features/qa-group-action";
 import { isoWeekRange } from "@/lib/load";
 import type { ProfileRole } from "@/lib/profile";
 
@@ -20,17 +21,29 @@ function mondayOf(date: Date): string {
   return isoWeekRange(date).start;
 }
 
+function sundayOf(date: Date): string {
+  return isoWeekRange(date).end;
+}
+
 export function AllocationsPageContent({ role, currentProfileId }: { role: ProfileRole; currentProfileId: string }) {
-  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
+  const [rangeStart, setRangeStart] = useState(() => mondayOf(new Date()));
+  const [rangeEnd, setRangeEnd] = useState(() => sundayOf(new Date()));
   const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
 
   const canWrite = role === "qa_lead" || role === "project_manager";
+  const validRange = rangeStart <= rangeEnd;
 
   const { data: dashboard, isLoading: loadLoading } = useQuery({
-    queryKey: ["weekly-dashboard", weekStart],
-    queryFn: () => getWeeklyDashboard(weekStart),
+    queryKey: ["range-dashboard", rangeStart, rangeEnd],
+    queryFn: () => getRangeDashboard(rangeStart, rangeEnd),
+    enabled: validRange,
+  });
+
+  const { data: qaGroups } = useQuery({
+    queryKey: ["qa-groups"],
+    queryFn: () => getQaGroups(),
   });
 
   // Fetch all projects (not just approved) so pending-project-proposal
@@ -49,7 +62,38 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
     [dashboard, search],
   );
 
+  const groupedResources = useMemo(() => {
+    const groups = (qaGroups ?? []).map((group) => ({
+      id: group.id,
+      name: group.name,
+      members: filteredResources.filter((r) => r.profile.qa_group_id === group.id),
+    }));
+    const unassigned = filteredResources.filter((r) => r.profile.qa_group_id === null);
+    return unassigned.length > 0 ? [...groups, { id: "unassigned", name: "Unassigned", members: unassigned }] : groups;
+  }, [qaGroups, filteredResources]);
+
   const selected = resources.find((r) => r.profile.id === selectedUserId) ?? null;
+
+  function renderResourceButton(r: ResourceLoadRow) {
+    return (
+      <button
+        key={r.profile.id}
+        type="button"
+        onClick={() => setSelectedUserId(r.profile.id)}
+        className={`w-full rounded-md border p-3 text-left transition-colors ${
+          selectedUserId === r.profile.id ? "border-blue-600 bg-blue-50" : "border-border hover:bg-muted"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{r.profile.name}</span>
+          <span className="text-xs text-muted-foreground">
+            {Math.round(r.allocatedHours * 10) / 10}/{r.profile.capacity_hours} hrs
+          </span>
+        </div>
+        <LoadBar percent={r.loadPercent} className="mt-2" />
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -66,17 +110,32 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <label htmlFor="week-start" className="text-sm text-muted-foreground">
-          Planning week of
-        </label>
-        <Input
-          id="week-start"
-          type="date"
-          value={weekStart}
-          onChange={(e) => setWeekStart(mondayOf(new Date(`${e.target.value}T00:00:00Z`)))}
-          className="w-40"
-        />
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <label htmlFor="range-start" className="text-sm text-muted-foreground">
+            Planning period — Start
+          </label>
+          <Input
+            id="range-start"
+            type="date"
+            value={rangeStart}
+            onChange={(e) => setRangeStart(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="range-end" className="text-sm text-muted-foreground">
+            End
+          </label>
+          <Input
+            id="range-end"
+            type="date"
+            value={rangeEnd}
+            onChange={(e) => setRangeEnd(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        {!validRange && <p className="text-sm text-rose-600">End date must be on or after start date.</p>}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -92,30 +151,20 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
                 className="pl-9"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-4">
               {loadLoading ? (
                 <p className="text-sm text-muted-foreground">Loading...</p>
               ) : filteredResources.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No resources found.</p>
               ) : (
-                filteredResources.map((r) => (
-                  <button
-                    key={r.profile.id}
-                    type="button"
-                    onClick={() => setSelectedUserId(r.profile.id)}
-                    className={`w-full rounded-md border p-3 text-left transition-colors ${
-                      selectedUserId === r.profile.id ? "border-blue-600 bg-blue-50" : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{r.profile.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {r.allocatedHours}/{r.profile.capacity_hours} hrs
-                      </span>
+                groupedResources
+                  .filter((group) => group.members.length > 0)
+                  .map((group) => (
+                    <div key={group.id} className="space-y-2">
+                      <h3 className="text-xs font-medium uppercase text-muted-foreground">{group.name}</h3>
+                      <div className="space-y-2">{group.members.map(renderResourceButton)}</div>
                     </div>
-                    <LoadBar percent={r.loadPercent} className="mt-2" />
-                  </button>
-                ))
+                  ))
               )}
             </div>
           </CardContent>
@@ -137,7 +186,8 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                {selected.profile.name} — {selected.allocatedHours}/{selected.profile.capacity_hours} hrs this week.
+                {selected.profile.name} — {Math.round(selected.allocatedHours * 10) / 10}/
+                {selected.profile.capacity_hours} hrs avg/week.
               </p>
             )}
           </CardContent>
