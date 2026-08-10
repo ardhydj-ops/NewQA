@@ -4,16 +4,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { ProjectInput, ProjectProposalInput } from "@/features/project-schema";
-import type { Product, Project, ProjectStatus, ApprovalStatus } from "@/lib/project";
+import type { Project, ProjectStatus, ApprovalStatus } from "@/lib/project";
 
 export async function getProjects({
   status = "",
-  product = "",
+  product_id = "",
   search = "",
   approvalStatus,
 }: {
   status?: ProjectStatus | "";
-  product?: Product | "";
+  product_id?: string;
   search?: string;
   approvalStatus?: ApprovalStatus;
 } = {}): Promise<Project[]> {
@@ -24,7 +24,7 @@ export async function getProjects({
   const term = search.trim();
   if (term) query = query.ilike("name", `%${term}%`);
   if (status) query = query.eq("status", status);
-  if (product) query = query.eq("product", product);
+  if (product_id) query = query.eq("product_id", product_id);
   if (approvalStatus) query = query.eq("approval_status", approvalStatus);
 
   const { data, error } = await query.order("start_date", { ascending: false });
@@ -46,7 +46,7 @@ export async function createProject(input: unknown): Promise<{ success: true }> 
     item_type: parsed.data.item_type,
     start_date: parsed.data.start_date,
     end_date: parsed.data.end_date,
-    product: parsed.data.product,
+    product_id: parsed.data.product_id,
     status: parsed.data.status,
     progress_percent: parsed.data.status === "completed" ? 100 : parsed.data.progress_percent,
     total_working_hours: parsed.data.total_working_hours,
@@ -128,7 +128,7 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
       item_type: parsed.data.item_type,
       start_date: parsed.data.start_date,
       end_date: parsed.data.end_date,
-      product: parsed.data.product,
+      product_id: parsed.data.product_id,
       status: parsed.data.status,
       progress_percent: becomingCompleted ? 100 : parsed.data.progress_percent,
       total_working_hours: parsed.data.total_working_hours,
@@ -171,7 +171,7 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
       item_type: parsed.data.project.item_type,
       start_date: parsed.data.project.start_date,
       end_date: parsed.data.project.end_date,
-      product: parsed.data.project.product,
+      product_id: parsed.data.project.product_id,
       status: parsed.data.project.status,
       progress_percent: parsed.data.project.progress_percent,
       total_working_hours: parsed.data.project.total_working_hours,
