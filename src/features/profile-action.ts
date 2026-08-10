@@ -108,3 +108,15 @@ export async function setProfileActive(id: string, isActive: boolean): Promise<{
   if (error) throw new Error(error.message);
   return { success: true };
 }
+
+export async function resetPassword(id: string): Promise<{ tempPassword: string }> {
+  await requireRole(["qa_lead"]);
+
+  const admin = createAdminClient();
+  const tempPassword = generateTempPassword();
+
+  const { error } = await admin.auth.admin.updateUserById(id, { password: tempPassword });
+  if (error) throw new Error(error.message);
+
+  return { tempPassword };
+}

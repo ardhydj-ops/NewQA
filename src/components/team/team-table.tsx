@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Pencil, UserCheck, UserX } from "lucide-react";
+import { KeyRound, MoreHorizontal, Pencil, UserCheck, UserX } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TeamFormDialog } from "@/components/team/team-form-dialog";
-import { setProfileActive } from "@/features/profile-action";
+import { resetPassword, setProfileActive } from "@/features/profile-action";
 import type { Profile, ProfileRole, QaGroup } from "@/lib/profile";
 
 const ROLE_LABEL: Record<ProfileRole, string> = {
@@ -43,6 +51,8 @@ type TeamTableProps = {
 
 export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps) {
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [resetPasswordFor, setResetPasswordFor] = useState<Profile | null>(null);
+  const [newTempPassword, setNewTempPassword] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const toggleActiveMutation = useMutation({
@@ -52,6 +62,15 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
       queryClient.invalidateQueries({ queryKey: ["profiles"] });
     },
     onError: (error: Error) => toast.error(error.message),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (id: string) => resetPassword(id),
+    onSuccess: (result) => setNewTempPassword(result.tempPassword),
+    onError: (error: Error) => {
+      toast.error(error.message);
+      setResetPasswordFor(null);
+    },
   });
 
   const columnCount = canWrite ? 6 : 5;
@@ -120,6 +139,15 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onSelect={() => {
+                              setResetPasswordFor(profile);
+                              resetPasswordMutation.mutate(profile.id);
+                            }}
+                          >
+                            <KeyRound className="size-4" />
+                            Reset Password
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onSelect={() =>
                               toggleActiveMutation.mutate({ id: profile.id, isActive: !profile.is_active })
                             }
@@ -158,6 +186,43 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
           initialValue={editingProfile}
         />
       )}
+
+      <Dialog
+        open={resetPasswordFor !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setResetPasswordFor(null);
+            setNewTempPassword(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Password reset</DialogTitle>
+            <DialogDescription>
+              {newTempPassword
+                ? `Share this temporary password with ${resetPasswordFor?.name} — it will not be shown again.`
+                : "Generating a new temporary password..."}
+            </DialogDescription>
+          </DialogHeader>
+          {newTempPassword && (
+            <div className="rounded-md border bg-muted px-4 py-3 text-center font-mono text-lg tracking-wider">
+              {newTempPassword}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              disabled={!newTempPassword}
+              onClick={() => {
+                setResetPasswordFor(null);
+                setNewTempPassword(null);
+              }}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
