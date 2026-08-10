@@ -43,16 +43,71 @@ export async function createProject(input: unknown): Promise<{ success: true }> 
   const admin = createAdminClient();
   const { error } = await admin.from("projects").insert({
     name: parsed.data.name,
+    item_type: parsed.data.item_type,
     start_date: parsed.data.start_date,
-    end_date: parsed.data.end_date ?? null,
+    end_date: parsed.data.end_date,
     product: parsed.data.product,
     status: parsed.data.status,
-    progress_percent: parsed.data.progress_percent,
+    progress_percent: parsed.data.status === "completed" ? 100 : parsed.data.progress_percent,
+    total_working_hours: parsed.data.total_working_hours,
+    priority: parsed.data.priority,
     approval_status: "approved",
   });
 
   if (error) throw new Error(error.message);
   return { success: true };
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * When a work item is marked Completed: reject any pending allocation
+ * proposal on it, clear any pending rebaseline change, close out ongoing
+ * approved allocations (end_date = today), and delete approved allocations
+ * that hadn't started yet. Idempotent — safe to run even if some rows are
+ * already in their target state.
+ */
+async function releaseAllocationsForCompletedProject(admin: AdminClient, projectId: string): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: allocations, error } = await admin
+    .from("allocations")
+    .select("id, start_date, end_date, approval_status, proposed_start_date")
+    .eq("project_id", projectId);
+  if (error) throw new Error(error.message);
+
+  for (const allocation of allocations ?? []) {
+    if (allocation.approval_status === "pending") {
+      await admin.from("allocations").update({ approval_status: "rejected" }).eq("id", allocation.id);
+      continue;
+    }
+
+    if (allocation.approval_status !== "approved") continue;
+
+    const updates: Record<string, unknown> = {};
+
+    if (allocation.proposed_start_date !== null) {
+      updates.proposed_start_date = null;
+      updates.proposed_end_date = null;
+      updates.proposed_hours_per_week = null;
+      updates.proposed_priority = null;
+      updates.change_proposed_by = null;
+      updates.change_requested_at = null;
+    }
+
+    if (allocation.start_date > today) {
+      await admin.from("allocations").delete().eq("id", allocation.id);
+      continue;
+    }
+
+    if (allocation.end_date === null || allocation.end_date > today) {
+      updates.end_date = today;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await admin.from("allocations").update(updates).eq("id", allocation.id);
+    }
+  }
 }
 
 export async function updateProject(id: string, input: unknown): Promise<{ success: true }> {
@@ -64,19 +119,29 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
   }
 
   const admin = createAdminClient();
+  const becomingCompleted = parsed.data.status === "completed";
+
   const { error } = await admin
     .from("projects")
     .update({
       name: parsed.data.name,
+      item_type: parsed.data.item_type,
       start_date: parsed.data.start_date,
-      end_date: parsed.data.end_date ?? null,
+      end_date: parsed.data.end_date,
       product: parsed.data.product,
       status: parsed.data.status,
-      progress_percent: parsed.data.progress_percent,
+      progress_percent: becomingCompleted ? 100 : parsed.data.progress_percent,
+      total_working_hours: parsed.data.total_working_hours,
+      priority: parsed.data.priority,
     })
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  if (becomingCompleted) {
+    await releaseAllocationsForCompletedProject(admin, id);
+  }
+
   return { success: true };
 }
 
@@ -103,11 +168,14 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
     .from("projects")
     .insert({
       name: parsed.data.project.name,
+      item_type: parsed.data.project.item_type,
       start_date: parsed.data.project.start_date,
-      end_date: parsed.data.project.end_date ?? null,
+      end_date: parsed.data.project.end_date,
       product: parsed.data.project.product,
       status: parsed.data.project.status,
       progress_percent: parsed.data.project.progress_percent,
+      total_working_hours: parsed.data.project.total_working_hours,
+      priority: parsed.data.project.priority,
       approval_status: "pending",
       proposed_by: profile.id,
     })
