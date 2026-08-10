@@ -3,8 +3,64 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
-import { AllocationInput } from "@/features/allocation-schema";
+import { getSettings } from "@/features/settings-action";
+import {
+  AllocationInput,
+  AllocationChangeInput,
+  BulkAllocationInput,
+} from "@/features/allocation-schema";
+import { overlappingProjectCount, weeksBetween } from "@/lib/load";
 import type { Allocation } from "@/lib/allocation";
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * Hard-blocks an allocation/change/approval that would push a QA over
+ * `app_settings.max_parallel_projects` distinct concurrent projects.
+ * `excludeAllocationId` excludes the row being updated (from its own old
+ * state) when re-checking an existing allocation; the candidate's own
+ * `projectId` is always excluded from the count (assigning the same
+ * project twice isn't "2 parallel projects").
+ */
+export async function assertWithinParallelLimit(
+  admin: AdminClient,
+  userId: string,
+  projectId: string,
+  startDate: string,
+  endDate: string | null,
+  excludeAllocationId?: string,
+): Promise<void> {
+  const settings = await getSettings();
+
+  let query = admin
+    .from("allocations")
+    .select("id, project_id, start_date, end_date")
+    .eq("user_id", userId)
+    .eq("approval_status", "approved");
+  if (excludeAllocationId) query = query.neq("id", excludeAllocationId);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  const existing = (data ?? []) as { project_id: string; start_date: string; end_date: string | null }[];
+  const count = overlappingProjectCount(
+    existing.map((a) => ({
+      user_id: userId,
+      project_id: a.project_id,
+      start_date: a.start_date,
+      end_date: a.end_date,
+    })),
+    userId,
+    { start_date: startDate, end_date: endDate },
+    projectId,
+  );
+
+  if (count + 1 > settings.max_parallel_projects) {
+    throw new Error(
+      `This would exceed the max of ${settings.max_parallel_projects} parallel projects for this QA.`,
+    );
+  }
+}
 
 export async function getAllocationsForUser(userId: string): Promise<Allocation[]> {
   const supabase = await createClient();
@@ -39,6 +95,16 @@ export async function createAllocation(input: unknown): Promise<{ success: true 
 
   const isLead = profile.role === "qa_lead";
 
+  if (isLead) {
+    await assertWithinParallelLimit(
+      admin,
+      parsed.data.user_id,
+      parsed.data.project_id,
+      parsed.data.start_date,
+      parsed.data.end_date ?? null,
+    );
+  }
+
   const { error } = await admin.from("allocations").insert({
     user_id: parsed.data.user_id,
     project_id: parsed.data.project_id,
@@ -46,6 +112,7 @@ export async function createAllocation(input: unknown): Promise<{ success: true 
     hours_per_week: parsed.data.hours_per_week,
     start_date: parsed.data.start_date,
     end_date: parsed.data.end_date ?? null,
+    priority: parsed.data.priority,
     approval_status: isLead ? "approved" : "pending",
     proposed_by: isLead ? null : profile.id,
   });
@@ -63,6 +130,16 @@ export async function updateAllocation(id: string, input: unknown): Promise<{ su
   }
 
   const admin = createAdminClient();
+
+  await assertWithinParallelLimit(
+    admin,
+    parsed.data.user_id,
+    parsed.data.project_id,
+    parsed.data.start_date,
+    parsed.data.end_date ?? null,
+    id,
+  );
+
   const { error } = await admin
     .from("allocations")
     .update({
@@ -72,6 +149,7 @@ export async function updateAllocation(id: string, input: unknown): Promise<{ su
       hours_per_week: parsed.data.hours_per_week,
       start_date: parsed.data.start_date,
       end_date: parsed.data.end_date ?? null,
+      priority: parsed.data.priority,
     })
     .eq("id", id);
 
@@ -105,4 +183,124 @@ export async function withdrawAllocationProposal(id: string): Promise<{ success:
   const { error } = await admin.from("allocations").delete().eq("id", id);
   if (error) throw new Error(error.message);
   return { success: true };
+}
+
+/**
+ * A Project Manager's request to change dates/hours/priority on an
+ * already-approved allocation. Stages into `proposed_*` — never touches
+ * the live columns directly. Blocked while another change is already
+ * pending on the same row. A QA Lead's own rebaseline instead calls
+ * `updateAllocation` directly (immediate, no staging) — see
+ * `RebaselineDialog` in Task 11.
+ */
+export async function proposeAllocationChange(id: string, input: unknown): Promise<{ success: true }> {
+  const profile = await requireRole(["project_manager"]);
+
+  const parsed = AllocationChangeInput.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: allocation } = await admin
+    .from("allocations")
+    .select("approval_status, proposed_start_date")
+    .eq("id", id)
+    .single();
+
+  if (!allocation || allocation.approval_status !== "approved") {
+    throw new Error("Only an approved assignment can be rebaselined");
+  }
+  if (allocation.proposed_start_date !== null) {
+    throw new Error("This assignment already has a pending change awaiting approval");
+  }
+
+  const { error } = await admin
+    .from("allocations")
+    .update({
+      proposed_start_date: parsed.data.start_date,
+      proposed_end_date: parsed.data.end_date ?? null,
+      proposed_hours_per_week: parsed.data.hours_per_week,
+      proposed_priority: parsed.data.priority,
+      change_proposed_by: profile.id,
+      change_requested_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+/**
+ * Assigns one project/activity to several QAs at once, splitting its
+ * `total_working_hours` evenly (per QA, per week, over the item's own
+ * date range). Each QA gets an independent allocation row. QA-Lead
+ * batches go live immediately (per-QA, subject to the parallel-limit
+ * check); PM batches are standalone `pending` proposals, same rule as
+ * the single-QA flow. Partial success is expected and reported —
+ * one QA failing the limit check doesn't block the others.
+ */
+export async function createBulkAllocations(
+  input: unknown,
+): Promise<{ created: string[]; failed: { userId: string; reason: string }[] }> {
+  const profile = await requireRole(["qa_lead", "project_manager"]);
+
+  const parsed = BulkAllocationInput.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: project, error: projectError } = await admin
+    .from("projects")
+    .select("approval_status, start_date, end_date, total_working_hours")
+    .eq("id", parsed.data.project_id)
+    .single();
+
+  if (projectError || !project || project.approval_status !== "approved") {
+    throw new Error("You can only assign testers to an approved project");
+  }
+  if (!project.end_date) {
+    throw new Error("This item has no end date and can't be evenly split");
+  }
+
+  const weeks = weeksBetween(project.start_date, project.end_date);
+  const hoursPerWeek = project.total_working_hours / parsed.data.user_ids.length / weeks;
+  const isLead = profile.role === "qa_lead";
+
+  const created: string[] = [];
+  const failed: { userId: string; reason: string }[] = [];
+
+  for (const userId of parsed.data.user_ids) {
+    if (isLead) {
+      try {
+        await assertWithinParallelLimit(admin, userId, parsed.data.project_id, project.start_date, project.end_date);
+      } catch (limitError) {
+        failed.push({ userId, reason: (limitError as Error).message });
+        continue;
+      }
+    }
+
+    const { error } = await admin.from("allocations").insert({
+      user_id: userId,
+      project_id: parsed.data.project_id,
+      role_on_project: parsed.data.role_on_project,
+      hours_per_week: hoursPerWeek,
+      start_date: project.start_date,
+      end_date: project.end_date,
+      priority: "medium",
+      approval_status: isLead ? "approved" : "pending",
+      proposed_by: isLead ? null : profile.id,
+    });
+
+    if (error) {
+      failed.push({ userId, reason: error.message });
+    } else {
+      created.push(userId);
+    }
+  }
+
+  return { created, failed };
 }
