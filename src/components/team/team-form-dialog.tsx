@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createProfile, updateProfile } from "@/features/profile-action";
-import type { Profile, ProfileRole, QaGroup } from "@/lib/profile";
+import { getQaGroups } from "@/features/qa-group-action";
+import type { Profile, ProfileRole } from "@/lib/profile";
 
 type FormState = {
   name: string;
   email: string;
   role: ProfileRole;
-  qa_group: QaGroup | "none";
+  qa_group_id: string; // "none" sentinel, or a qa_groups.id
   capacity_hours: string;
 };
 
@@ -39,10 +40,10 @@ function formFromProfile(profile?: Profile): FormState {
         name: profile.name,
         email: profile.email,
         role: profile.role,
-        qa_group: profile.qa_group ?? "none",
+        qa_group_id: profile.qa_group_id ?? "none",
         capacity_hours: String(profile.capacity_hours),
       }
-    : { name: "", email: "", role: "qa_member", qa_group: "none", capacity_hours: "40" };
+    : { name: "", email: "", role: "qa_member", qa_group_id: "none", capacity_hours: "40" };
 }
 
 type TeamFormDialogProps = {
@@ -58,6 +59,11 @@ export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamF
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  const { data: qaGroups } = useQuery({
+    queryKey: ["qa-groups"],
+    queryFn: () => getQaGroups(),
+  });
+
   const mutation = useMutation<
     { profile: Profile; tempPassword: string } | { success: true },
     Error,
@@ -68,7 +74,7 @@ export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamF
         name: form.name,
         email: form.email,
         role: form.role,
-        qa_group: form.qa_group === "none" ? undefined : form.qa_group,
+        qa_group_id: form.qa_group_id === "none" ? undefined : form.qa_group_id,
         capacity_hours: Number(form.capacity_hours),
       };
       return isEdit && initialValue
@@ -187,19 +193,19 @@ export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamF
           <div className="space-y-2">
             <Label htmlFor="qa_group">QA Group</Label>
             <Select
-              value={form.qa_group}
-              onValueChange={(value) => setForm((f) => ({ ...f, qa_group: value as QaGroup | "none" }))}
+              value={form.qa_group_id}
+              onValueChange={(value) => setForm((f) => ({ ...f, qa_group_id: value }))}
             >
               <SelectTrigger id="qa_group" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
-                <SelectItem value="qris_h2h">QRIS H2H</SelectItem>
-                <SelectItem value="qris_bo">QRIS BO</SelectItem>
-                <SelectItem value="digital_h2h">Digital H2H</SelectItem>
-                <SelectItem value="digital_bo">Digital BO</SelectItem>
-                <SelectItem value="corporate_it">Corporate IT</SelectItem>
+                {(qaGroups ?? []).map((group) => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

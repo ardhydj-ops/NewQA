@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, MoreHorizontal, Pencil, UserCheck, UserX } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,20 +26,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TeamFormDialog } from "@/components/team/team-form-dialog";
 import { resetPassword, setProfileActive } from "@/features/profile-action";
-import type { Profile, ProfileRole, QaGroup } from "@/lib/profile";
+import { getQaGroups } from "@/features/qa-group-action";
+import type { Profile, ProfileRole } from "@/lib/profile";
 
 const ROLE_LABEL: Record<ProfileRole, string> = {
   qa_lead: "QA Lead",
   qa_member: "QA Member",
   project_manager: "Project Manager",
-};
-
-const QA_GROUP_LABEL: Record<QaGroup, string> = {
-  qris_h2h: "QRIS H2H",
-  qris_bo: "QRIS BO",
-  digital_h2h: "Digital H2H",
-  digital_bo: "Digital BO",
-  corporate_it: "Corporate IT",
 };
 
 type TeamTableProps = {
@@ -54,6 +47,12 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
   const [resetPasswordFor, setResetPasswordFor] = useState<Profile | null>(null);
   const [newTempPassword, setNewTempPassword] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const { data: qaGroups } = useQuery({
+    queryKey: ["qa-groups"],
+    queryFn: () => getQaGroups(),
+  });
+  const qaGroupNameById = new Map((qaGroups ?? []).map((g) => [g.id, g.name]));
 
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => setProfileActive(id, isActive),
@@ -122,7 +121,7 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
                     <Badge variant="secondary">{ROLE_LABEL[profile.role]}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {profile.qa_group ? QA_GROUP_LABEL[profile.qa_group] : "—"}
+                    {profile.qa_group_id ? (qaGroupNameById.get(profile.qa_group_id) ?? "—") : "—"}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">{profile.capacity_hours}</TableCell>
                   {canWrite && (

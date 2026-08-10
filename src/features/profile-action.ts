@@ -63,7 +63,7 @@ export async function createProfile(
       name: parsed.data.name,
       email: parsed.data.email,
       role: parsed.data.role,
-      qa_group: parsed.data.qa_group ?? null,
+      qa_group_id: parsed.data.qa_group_id ?? null,
       capacity_hours: parsed.data.capacity_hours,
     })
     .select("*")
@@ -91,7 +91,7 @@ export async function updateProfile(id: string, input: unknown): Promise<{ succe
     .update({
       name: parsed.data.name,
       role: parsed.data.role,
-      qa_group: parsed.data.qa_group ?? null,
+      qa_group_id: parsed.data.qa_group_id ?? null,
       capacity_hours: parsed.data.capacity_hours,
     })
     .eq("id", id);
