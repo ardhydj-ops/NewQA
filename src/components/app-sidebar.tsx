@@ -7,6 +7,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   ListChecks,
+  Settings as SettingsIcon,
   Users,
 } from "lucide-react";
 
@@ -59,6 +60,12 @@ const ITEMS: NavItem[] = [
     href: "/approvals",
     label: "Approvals",
     icon: CheckSquare,
+    roles: ["qa_lead"],
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: SettingsIcon,
     roles: ["qa_lead"],
   },
 ];
