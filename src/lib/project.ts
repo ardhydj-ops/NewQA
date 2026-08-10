@@ -1,5 +1,3 @@
-export type Product = "qris_h2h" | "qris_bo" | "qrcb" | "pi" | "jv" | "ccw";
-
 export type ProjectStatus =
   | "to_do"
   | "ready_sit"
@@ -19,7 +17,7 @@ export type Project = {
   name: string;
   start_date: string;
   end_date: string | null;
-  product: Product;
+  product_id: string;
   status: ProjectStatus;
   progress_percent: number;
   item_type: ItemType;
