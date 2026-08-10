@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2, Undo2 } from "lucide-react";
+import { GitBranch, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,16 +17,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AllocationEditDialog } from "@/components/allocations/allocation-edit-dialog";
+import { RebaselineDialog } from "@/components/allocations/rebaseline-dialog";
 import {
   deleteAllocation,
   getAllocationsForUser,
   withdrawAllocationProposal,
 } from "@/features/allocation-action";
+import { hasPendingChange, type Allocation } from "@/lib/allocation";
 import { formatDate } from "@/lib/format";
-import type { Allocation } from "@/lib/allocation";
-import type { Project } from "@/lib/project";
+import type { Priority, Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
+
+const PRIORITY_LABEL: Record<Priority, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  critical: "Critical",
+};
 
 type AssignmentsTableProps = {
   userId: string;
@@ -37,7 +44,7 @@ type AssignmentsTableProps = {
 };
 
 export function AssignmentsTable({ userId, userName, projects, role, currentProfileId }: AssignmentsTableProps) {
-  const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
+  const [rebaseliningAllocation, setRebaseliningAllocation] = useState<Allocation | null>(null);
   const queryClient = useQueryClient();
   const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
 
@@ -70,6 +77,8 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
     .filter((a) => a.approval_status === "approved")
     .reduce((sum, a) => sum + a.hours_per_week, 0);
 
+  const canRebaseline = role === "qa_lead" || role === "project_manager";
+
   return (
     <Card>
       <CardHeader>
@@ -82,6 +91,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
               <TableHead className="pl-6">Project Name</TableHead>
               <TableHead>Role</TableHead>
               <TableHead className="text-right">Hours/Wk</TableHead>
+              <TableHead>Priority</TableHead>
               <TableHead>Timeline</TableHead>
               <TableHead className="pr-6 text-right">Actions</TableHead>
             </TableRow>
@@ -89,13 +99,13 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                   No assignments yet.
                 </TableCell>
               </TableRow>
@@ -114,25 +124,35 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
                         Rejected
                       </Badge>
                     )}
+                    {allocation.approval_status === "approved" && hasPendingChange(allocation) && (
+                      <Badge variant="outline" className="ml-2 border-blue-200 bg-blue-50 text-blue-700">
+                        Pending Change
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{allocation.role_on_project}</TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{allocation.hours_per_week}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {Math.round(allocation.hours_per_week * 10) / 10}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{PRIORITY_LABEL[allocation.priority]}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(allocation.start_date)} –{" "}
                     {allocation.end_date ? formatDate(allocation.end_date) : "Ongoing"}
                   </TableCell>
                   <TableCell className="pr-6 text-right">
-                    {role === "qa_lead" && allocation.approval_status === "approved" && (
-                      <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-1">
+                      {canRebaseline && allocation.approval_status === "approved" && !hasPendingChange(allocation) && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="size-8"
-                          onClick={() => setEditingAllocation(allocation)}
-                          aria-label="Edit assignment"
+                          onClick={() => setRebaseliningAllocation(allocation)}
+                          aria-label="Rebaseline assignment"
                         >
-                          <Pencil className="size-4" />
+                          <GitBranch className="size-4" />
                         </Button>
+                      )}
+                      {role === "qa_lead" && allocation.approval_status === "approved" && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -143,21 +163,21 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
                         >
                           <Trash2 className="size-4" />
                         </Button>
-                      </div>
-                    )}
-                    {role === "project_manager" &&
-                      allocation.approval_status === "pending" &&
-                      allocation.proposed_by === currentProfileId && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={withdrawMutation.isPending}
-                          onClick={() => withdrawMutation.mutate(allocation.id)}
-                        >
-                          <Undo2 className="size-4" />
-                          Withdraw
-                        </Button>
                       )}
+                      {role === "project_manager" &&
+                        allocation.approval_status === "pending" &&
+                        allocation.proposed_by === currentProfileId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={withdrawMutation.isPending}
+                            onClick={() => withdrawMutation.mutate(allocation.id)}
+                          >
+                            <Undo2 className="size-4" />
+                            Withdraw
+                          </Button>
+                        )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -167,21 +187,22 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
             <TableFooter>
               <TableRow>
                 <TableCell colSpan={2} className="pl-6">Total Allocated</TableCell>
-                <TableCell className="text-right tabular-nums">{totalAllocated} hrs</TableCell>
-                <TableCell colSpan={2} />
+                <TableCell className="text-right tabular-nums">{Math.round(totalAllocated * 10) / 10} hrs</TableCell>
+                <TableCell colSpan={3} />
               </TableRow>
             </TableFooter>
           )}
         </Table>
       </CardContent>
 
-      {editingAllocation && (
-        <AllocationEditDialog
-          key={editingAllocation.id}
-          allocation={editingAllocation}
+      {rebaseliningAllocation && (
+        <RebaselineDialog
+          key={rebaseliningAllocation.id}
+          allocation={rebaseliningAllocation}
+          role={role}
           open
           onOpenChange={(o) => {
-            if (!o) setEditingAllocation(null);
+            if (!o) setRebaseliningAllocation(null);
           }}
         />
       )}

@@ -2,13 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadBar } from "@/components/ui/load-bar";
 import { AllocationForm } from "@/components/allocations/allocation-form";
 import { AssignmentsTable } from "@/components/allocations/assignments-table";
+import { BulkAssignDialog } from "@/components/allocations/bulk-assign-dialog";
 import { getWeeklyDashboard } from "@/features/dashboard-action";
 import { getProjects } from "@/features/project-action";
 import { isoWeekRange } from "@/lib/load";
@@ -22,6 +24,7 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
 
   const canWrite = role === "qa_lead" || role === "project_manager";
 
@@ -32,7 +35,7 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
 
   // Fetch all projects (not just approved) so pending-project-proposal
   // allocations can still resolve a project name in the assignments table;
-  // the picker below filters back down to approved-only itself.
+  // the pickers below filter back down to approved-only themselves.
   const { data: allProjects } = useQuery({
     queryKey: ["projects", {}],
     queryFn: () => getProjects(),
@@ -50,9 +53,17 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Allocation Tool</h1>
-        <p className="text-sm text-muted-foreground">Assign QA resources to approved projects and manage capacity.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Allocation Tool</h1>
+          <p className="text-sm text-muted-foreground">Assign QA resources to approved projects and manage capacity.</p>
+        </div>
+        {canWrite && (
+          <Button onClick={() => setBulkAssignOpen(true)}>
+            <Plus className="size-4" />
+            Add Project
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -142,6 +153,8 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
           currentProfileId={currentProfileId}
         />
       )}
+
+      {canWrite && <BulkAssignDialog role={role} open={bulkAssignOpen} onOpenChange={setBulkAssignOpen} />}
     </div>
   );
 }
