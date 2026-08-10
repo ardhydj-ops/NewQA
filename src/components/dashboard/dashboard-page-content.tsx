@@ -9,32 +9,13 @@ import { Label } from "@/components/ui/label";
 import { LoadBar } from "@/components/ui/load-bar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getMonthlyDashboard, getWeeklyDashboard } from "@/features/dashboard-action";
+import { getProducts } from "@/features/product-action";
+import { getQaGroups } from "@/features/qa-group-action";
 import { isoWeekRange } from "@/lib/load";
-import type { Product } from "@/lib/project";
-import type { QaGroup } from "@/lib/profile";
 
 function mondayOf(date: Date): string {
   return isoWeekRange(date).start;
 }
-
-const PRODUCT_LABEL: Record<Product, string> = {
-  qris_h2h: "QRIS H2H",
-  qris_bo: "QRIS BO",
-  qrcb: "QRCB",
-  pi: "PI",
-  jv: "JV",
-  ccw: "CCW",
-};
-
-const QA_GROUP_LABEL: Record<QaGroup, string> = {
-  qris_h2h: "QRIS H2H",
-  qris_bo: "QRIS BO",
-  digital_h2h: "Digital H2H",
-  digital_bo: "Digital BO",
-  corporate_it: "Corporate IT",
-};
-
-const QA_GROUP_ORDER: QaGroup[] = ["qris_h2h", "qris_bo", "digital_h2h", "digital_bo", "corporate_it"];
 
 export function DashboardPageContent() {
   const today = new Date();
@@ -52,6 +33,17 @@ export function DashboardPageContent() {
     queryFn: () => getMonthlyDashboard(year, monthIndex0),
   });
 
+  const { data: qaGroups } = useQuery({
+    queryKey: ["qa-groups"],
+    queryFn: () => getQaGroups(),
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => getProducts(),
+  });
+  const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
+
   const monthValue = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
 
   const resourceLoad = weekly?.resourceLoad ?? [];
@@ -62,14 +54,16 @@ export function DashboardPageContent() {
       ? resourceLoad.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / resourceLoad.length
       : 0;
 
-  const groupStats = QA_GROUP_ORDER.map((group) => {
-    const members = resourceLoad.filter((r) => r.profile.qa_group === group);
+  const groupStats = (qaGroups ?? []).map((group) => {
+    const members = resourceLoad.filter((r) => r.profile.qa_group_id === group.id);
     const totalCapacity = members.reduce((sum, r) => sum + r.profile.capacity_hours, 0);
     const totalAllocated = members.reduce((sum, r) => sum + r.allocatedHours, 0);
     const avgAvailable =
       members.length > 0 ? members.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / members.length : 0;
     return {
-      group,
+      groupId: group.id,
+      groupName: group.name,
+      memberCount: members.length,
       totalCapacity,
       totalAllocated,
       availableCapacity: totalCapacity - totalAllocated,
@@ -141,6 +135,7 @@ export function DashboardPageContent() {
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-6">QA Group</TableHead>
+                <TableHead className="text-right"># QAs</TableHead>
                 <TableHead className="text-right">Total Capacity</TableHead>
                 <TableHead className="text-right">Total Allocated</TableHead>
                 <TableHead className="text-right">Available Capacity</TableHead>
@@ -150,14 +145,15 @@ export function DashboardPageContent() {
             <TableBody>
               {weeklyLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : (
                 groupStats.map((stat) => (
-                  <TableRow key={stat.group}>
-                    <TableCell className="pl-6 text-sm font-medium">{QA_GROUP_LABEL[stat.group]}</TableCell>
+                  <TableRow key={stat.groupId}>
+                    <TableCell className="pl-6 text-sm font-medium">{stat.groupName}</TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">{stat.memberCount}</TableCell>
                     <TableCell className="text-right text-sm tabular-nums">
                       {stat.totalCapacity} <span className="text-muted-foreground">hrs/wk</span>
                     </TableCell>
@@ -267,7 +263,8 @@ export function DashboardPageContent() {
                 {(monthly?.perProject ?? []).map(({ project, hours }) => (
                   <div key={project.id} className="flex items-center justify-between text-sm">
                     <span className="font-medium">
-                      {project.name} <span className="text-muted-foreground">({PRODUCT_LABEL[project.product]})</span>
+                      {project.name}{" "}
+                      <span className="text-muted-foreground">({productNameById.get(project.product_id) ?? "—"})</span>
                     </span>
                     <span className="text-muted-foreground tabular-nums">{Math.round(hours)} hrs</span>
                   </div>
