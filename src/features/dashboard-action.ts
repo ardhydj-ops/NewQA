@@ -8,7 +8,11 @@ import {
   weeklyLoadPercent,
   monthlyHoursForUser,
   monthlyHoursForProject,
+  monthlyHoursForUser as rangeHoursForUser,
+  monthlyHoursForProject as rangeHoursForProject,
+  weeksBetween,
   type AllocationForCalc,
+  type DateRange,
 } from "@/lib/load";
 import type { Profile } from "@/lib/profile";
 import type { Project } from "@/lib/project";
@@ -89,6 +93,55 @@ export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDa
 
   const topDemand = projects
     .map((project) => ({ project, hours: hoursByProject.get(project.id) ?? 0 }))
+    .sort((a, b) => b.hours - a.hours)
+    .slice(0, 5);
+
+  return {
+    totalCapacity,
+    totalAllocated,
+    availableCapacity: totalCapacity - totalAllocated,
+    resourceLoad,
+    topDemand,
+  };
+}
+
+/**
+ * Same shape as `getWeeklyDashboard`, but for an arbitrary [start, end] range
+ * instead of one fixed ISO week — `allocatedHours` per QA (and `hours` per
+ * project in `topDemand`) is the range's total prorated hours divided by
+ * how many weeks the range spans, i.e. an average hrs/week figure, so the
+ * existing 80%/100% load thresholds and hrs/wk-labeled UI keep meaning
+ * unchanged no matter how wide a range is picked.
+ */
+export async function getRangeDashboard(startDateISO: string, endDateISO: string): Promise<WeeklyDashboard> {
+  if (startDateISO > endDateISO) {
+    throw new Error("End date must be on or after start date");
+  }
+
+  const range: DateRange = { start: startDateISO, end: endDateISO };
+  const weeks = weeksBetween(startDateISO, endDateISO);
+  const [resources, allocations] = await Promise.all([
+    getActiveResources(),
+    getApprovedAllocationsInRange(range.start, range.end),
+  ]);
+
+  const resourceLoad: ResourceLoadRow[] = resources.map((profile) => {
+    const allocatedHours = rangeHoursForUser(allocations, profile.id, range) / weeks;
+    return {
+      profile,
+      allocatedHours,
+      loadPercent: weeklyLoadPercent(allocatedHours, profile.capacity_hours),
+    };
+  });
+
+  const totalCapacity = resources.reduce((sum, p) => sum + p.capacity_hours, 0);
+  const totalAllocated = resourceLoad.reduce((sum, r) => sum + r.allocatedHours, 0);
+
+  const projectIds = [...new Set(allocations.map((a) => a.project_id))];
+  const projects = await getProjectsByIds(projectIds);
+
+  const topDemand = projects
+    .map((project) => ({ project, hours: rangeHoursForProject(allocations, project.id, range) / weeks }))
     .sort((a, b) => b.hours - a.hours)
     .slice(0, 5);
 
