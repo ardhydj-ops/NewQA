@@ -41,3 +41,6 @@ next-env.d.ts
 
 # git worktrees
 /.worktrees
+
+# Claude Code harness workspace state (nested worktrees, etc.)
+/.claude
