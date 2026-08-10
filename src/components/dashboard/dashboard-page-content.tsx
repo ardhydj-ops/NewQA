@@ -42,6 +42,14 @@ export function DashboardPageContent() {
 
   const monthValue = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
 
+  const resourceLoad = weekly?.resourceLoad ?? [];
+  const allocatedPercent =
+    weekly && weekly.totalCapacity > 0 ? (weekly.totalAllocated / weekly.totalCapacity) * 100 : 0;
+  const avgAvailablePercent =
+    resourceLoad.length > 0
+      ? resourceLoad.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / resourceLoad.length
+      : 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -63,7 +71,7 @@ export function DashboardPageContent() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="space-y-1 pt-6">
             <p className="text-xs font-medium uppercase text-muted-foreground">Total QA Capacity</p>
@@ -73,11 +81,12 @@ export function DashboardPageContent() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="space-y-1 pt-6">
+          <CardContent className="space-y-2 pt-6">
             <p className="text-xs font-medium uppercase text-muted-foreground">Total Allocated</p>
             <p className="text-3xl font-bold tabular-nums">
               {weekly?.totalAllocated ?? 0} <span className="text-sm font-normal text-muted-foreground">hrs/wk</span>
             </p>
+            <LoadBar percent={allocatedPercent} />
           </CardContent>
         </Card>
         <Card>
@@ -85,6 +94,14 @@ export function DashboardPageContent() {
             <p className="text-xs font-medium uppercase text-muted-foreground">Available Capacity</p>
             <p className="text-3xl font-bold tabular-nums">
               {weekly?.availableCapacity ?? 0} <span className="text-sm font-normal text-muted-foreground">hrs/wk</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="space-y-1 pt-6">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Avg Available Capacity</p>
+            <p className="text-3xl font-bold tabular-nums">
+              {Math.round(avgAvailablePercent)} <span className="text-sm font-normal text-muted-foreground">%</span>
             </p>
           </CardContent>
         </Card>
@@ -98,7 +115,7 @@ export function DashboardPageContent() {
               <p className="text-sm text-muted-foreground">Loading...</p>
             ) : (
               <div className="space-y-3">
-                {(weekly?.resourceLoad ?? []).map((row) => (
+                {resourceLoad.map((row) => (
                   <div key={row.profile.id} className="flex items-center gap-3">
                     <span className="w-32 truncate text-sm font-medium">{row.profile.name}</span>
                     <span className="w-24 text-xs text-muted-foreground">
