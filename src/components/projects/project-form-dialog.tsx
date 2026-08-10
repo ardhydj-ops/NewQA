@@ -22,34 +22,43 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createProject, updateProject } from "@/features/project-action";
-import type { Product, Project, ProjectStatus } from "@/lib/project";
+import type { ItemType, Priority, Product, Project, ProjectStatus } from "@/lib/project";
 
 type FormState = {
   name: string;
+  item_type: ItemType;
   start_date: string;
   end_date: string;
   product: Product;
   status: ProjectStatus;
   progress_percent: string;
+  total_working_hours: string;
+  priority: Priority;
 };
 
 function formFromProject(project?: Project): FormState {
   return project
     ? {
         name: project.name,
+        item_type: project.item_type,
         start_date: project.start_date,
         end_date: project.end_date ?? "",
         product: project.product,
         status: project.status,
         progress_percent: String(project.progress_percent),
+        total_working_hours: String(project.total_working_hours),
+        priority: project.priority,
       }
     : {
         name: "",
+        item_type: "project",
         start_date: "",
         end_date: "",
         product: "qris_h2h",
         status: "to_do",
         progress_percent: "0",
+        total_working_hours: "",
+        priority: "medium",
       };
 }
 
@@ -69,16 +78,19 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
     mutationFn: () => {
       const payload = {
         name: form.name,
+        item_type: form.item_type,
         start_date: form.start_date,
-        end_date: form.end_date || undefined,
+        end_date: form.end_date,
         product: form.product,
         status: form.status,
         progress_percent: Number(form.progress_percent),
+        total_working_hours: Number(form.total_working_hours),
+        priority: form.priority,
       };
       return isEdit && initialValue ? updateProject(initialValue.id, payload) : createProject(payload);
     },
     onSuccess: () => {
-      toast.success(isEdit ? "Project updated" : "Project created");
+      toast.success(isEdit ? "Item updated" : "Item created");
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       if (!isEdit) setForm(formFromProject());
       onOpenChange(false);
@@ -90,7 +102,7 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit project" : "New project"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit item" : "New item"}</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(event) => {
@@ -100,8 +112,23 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label htmlFor="name">Project Name</Label>
+            <Label htmlFor="name">Name</Label>
             <Input id="name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="item_type">Item Type</Label>
+            <Select value={form.item_type} onValueChange={(value) => setForm((f) => ({ ...f, item_type: value as ItemType }))}>
+              <SelectTrigger id="item_type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="project">Project</SelectItem>
+                <SelectItem value="support_testing">Support Testing</SelectItem>
+                <SelectItem value="problem_incident">Problem Incident</SelectItem>
+                <SelectItem value="service_request">Service Request</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -122,6 +149,7 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
                 type="date"
                 value={form.end_date}
                 onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                required
               />
             </div>
           </div>
@@ -161,23 +189,61 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="progress">Progress %</Label>
-            <Input
-              id="progress"
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              value={form.progress_percent}
-              onChange={(e) => setForm((f) => ({ ...f, progress_percent: e.target.value }))}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="total_working_hours">Total Working Hours</Label>
+              <Input
+                id="total_working_hours"
+                type="number"
+                min={1}
+                step={1}
+                value={form.total_working_hours}
+                onChange={(e) => setForm((f) => ({ ...f, total_working_hours: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
+              <Select value={form.priority} onValueChange={(value) => setForm((f) => ({ ...f, priority: value as Priority }))}>
+                <SelectTrigger id="priority" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {form.status !== "completed" && (
+            <div className="space-y-2">
+              <Label htmlFor="progress">Progress %</Label>
+              <Input
+                id="progress"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={form.progress_percent}
+                onChange={(e) => setForm((f) => ({ ...f, progress_percent: e.target.value }))}
+                required
+              />
+            </div>
+          )}
+
+          {isEdit && form.status === "completed" && (
+            <p className="text-xs text-muted-foreground">
+              Progress is locked at 100% once Completed, and every assignment on this item will be closed out
+              (ongoing ones end today; not-yet-started ones are removed) when you save.
+            </p>
+          )}
 
           <DialogFooter>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Saving..." : isEdit ? "Save" : "Create project"}
+              {mutation.isPending ? "Saving..." : isEdit ? "Save" : "Create item"}
             </Button>
           </DialogFooter>
         </form>

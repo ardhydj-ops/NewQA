@@ -30,7 +30,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { deleteProject, withdrawProjectProposal } from "@/features/project-action";
 import { formatDate } from "@/lib/format";
-import type { Product, Project, ProjectStatus } from "@/lib/project";
+import type { ItemType, Priority, Product, Project, ProjectStatus } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
 
 const PRODUCT_LABEL: Record<Product, string> = {
@@ -51,6 +51,27 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
   completed: "Completed",
 };
 
+const ITEM_TYPE_LABEL: Record<ItemType, string> = {
+  project: "Project",
+  support_testing: "Support Testing",
+  problem_incident: "Problem Incident",
+  service_request: "Service Request",
+};
+
+const PRIORITY_LABEL: Record<Priority, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  critical: "Critical",
+};
+
+const PRIORITY_BADGE_CLASS: Record<Priority, string> = {
+  low: "border-slate-200 bg-slate-50 text-slate-700",
+  medium: "border-blue-200 bg-blue-50 text-blue-700",
+  high: "border-amber-200 bg-amber-50 text-amber-700",
+  critical: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
 type ProjectTableProps = {
   rows: Project[];
   isLoading: boolean;
@@ -67,12 +88,12 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
   const canEdit = role === "qa_lead";
   const canPropose = role === "project_manager";
   const showActions = canEdit || canPropose;
-  const columnCount = showActions ? 7 : 6;
+  const columnCount = showActions ? 9 : 8;
 
   const deleteMutation = useMutation({
     mutationFn: deleteProject,
     onSuccess: () => {
-      toast.success("Project deleted");
+      toast.success("Item deleted");
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       setDeletingProject(null);
     },
@@ -94,11 +115,14 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-6">Project Name</TableHead>
+              <TableHead className="pl-6">Name</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Start Date</TableHead>
               <TableHead>End Date</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead className="text-right">Total Hrs</TableHead>
               <TableHead>Progress</TableHead>
               {showActions && <TableHead className="pr-6 text-right">Actions</TableHead>}
             </TableRow>
@@ -109,9 +133,12 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
                 <TableRow key={i}>
                   <TableCell className="pl-6"><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="ml-auto h-4 w-10" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   {showActions && <TableCell className="pr-6"><Skeleton className="ml-auto size-8 rounded-md" /></TableCell>}
                 </TableRow>
@@ -119,13 +146,13 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
             ) : isError ? (
               <TableRow>
                 <TableCell colSpan={columnCount} className="py-8 text-center text-sm text-muted-foreground">
-                  Failed to load projects.
+                  Failed to load items.
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columnCount} className="py-8 text-center text-sm text-muted-foreground">
-                  No projects yet.
+                  No items yet.
                 </TableCell>
               </TableRow>
             ) : (
@@ -145,6 +172,9 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
                     )}
                   </TableCell>
                   <TableCell>
+                    <Badge variant="outline">{ITEM_TYPE_LABEL[project.item_type]}</Badge>
+                  </TableCell>
+                  <TableCell>
                     <Badge variant="secondary">{PRODUCT_LABEL[project.product]}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{formatDate(project.start_date)}</TableCell>
@@ -154,6 +184,12 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
                   <TableCell>
                     <Badge variant="outline">{STATUS_LABEL[project.status]}</Badge>
                   </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={PRIORITY_BADGE_CLASS[project.priority]}>
+                      {PRIORITY_LABEL[project.priority]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">{project.total_working_hours}</TableCell>
                   <TableCell>
                     <ProgressBar percent={project.progress_percent} />
                   </TableCell>
@@ -221,7 +257,7 @@ export function ProjectTable({ rows, isLoading, isError, role, currentProfileId 
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogTitle>Delete item?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently deletes &ldquo;{deletingProject?.name}&rdquo; and all of its allocations.
             </AlertDialogDescription>

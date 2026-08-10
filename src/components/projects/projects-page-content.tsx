@@ -37,24 +37,26 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Project Portfolio</h1>
-          <p className="text-sm text-muted-foreground">Manage and track QA projects across all stages.</p>
+          <p className="text-sm text-muted-foreground">
+            Manage and track projects, support testing, problem incidents, and service requests.
+          </p>
         </div>
         {role === "qa_lead" && (
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
-            New Project
+            New Item
           </Button>
         )}
         {role === "project_manager" && (
           <Button onClick={() => setProposeOpen(true)}>
             <Plus className="size-4" />
-            Propose Project
+            Propose Item
           </Button>
         )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search projects..." className="max-w-64" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="max-w-64" />
         <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : (v as ProjectStatus))}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Status" />

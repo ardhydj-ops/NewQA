@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { getAssignableProfiles } from "@/features/profile-action";
 import { proposeProject } from "@/features/project-action";
-import type { Product, ProjectStatus } from "@/lib/project";
+import type { ItemType, Priority, Product, ProjectStatus } from "@/lib/project";
 
 type AllocationRow = {
   user_id: string;
@@ -45,10 +45,13 @@ type ProposeProjectDialogProps = {
 
 export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialogProps) {
   const [name, setName] = useState("");
+  const [itemType, setItemType] = useState<ItemType>("project");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [product, setProduct] = useState<Product>("qris_h2h");
   const [status, setStatus] = useState<ProjectStatus>("to_do");
+  const [totalWorkingHours, setTotalWorkingHours] = useState("");
+  const [priority, setPriority] = useState<Priority>("medium");
   const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow()]);
   const queryClient = useQueryClient();
 
@@ -62,11 +65,14 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
       proposeProject({
         project: {
           name,
+          item_type: itemType,
           start_date: startDate,
-          end_date: endDate || undefined,
+          end_date: endDate,
           product,
           status,
           progress_percent: 0,
+          total_working_hours: Number(totalWorkingHours),
+          priority,
         },
         allocations: rows.map((row) => ({
           user_id: row.user_id,
@@ -82,6 +88,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
       setName("");
       setStartDate("");
       setEndDate("");
+      setTotalWorkingHours("");
       setRows([emptyAllocationRow()]);
       onOpenChange(false);
     },
@@ -96,7 +103,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Propose project</DialogTitle>
+          <DialogTitle>Propose item</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(event) => {
@@ -106,8 +113,23 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label htmlFor="proposal_name">Project Name</Label>
+            <Label htmlFor="proposal_name">Name</Label>
             <Input id="proposal_name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="proposal_item_type">Item Type</Label>
+            <Select value={itemType} onValueChange={(value) => setItemType(value as ItemType)}>
+              <SelectTrigger id="proposal_item_type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="project">Project</SelectItem>
+                <SelectItem value="support_testing">Support Testing</SelectItem>
+                <SelectItem value="problem_incident">Problem Incident</SelectItem>
+                <SelectItem value="service_request">Service Request</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -117,7 +139,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
             </div>
             <div className="space-y-2">
               <Label htmlFor="proposal_end">End Date</Label>
-              <Input id="proposal_end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Input id="proposal_end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
             </div>
           </div>
 
@@ -151,6 +173,35 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                   <SelectItem value="ready_uat">Ready to UAT</SelectItem>
                   <SelectItem value="uat">UAT</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="proposal_hours">Total Working Hours</Label>
+              <Input
+                id="proposal_hours"
+                type="number"
+                min={1}
+                step={1}
+                value={totalWorkingHours}
+                onChange={(e) => setTotalWorkingHours(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="proposal_priority">Priority</Label>
+              <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
+                <SelectTrigger id="proposal_priority" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
                 </SelectContent>
               </Select>
             </div>
