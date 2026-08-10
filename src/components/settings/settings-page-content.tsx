@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NameEntityCard } from "@/components/settings/name-entity-card";
 import { getSettings, updateSettings } from "@/features/settings-action";
+import { createProduct, deleteProduct, getProducts, updateProduct } from "@/features/product-action";
+import { createQaGroup, deleteQaGroup, getQaGroups, updateQaGroup } from "@/features/qa-group-action";
 
 export function SettingsPageContent() {
   const [maxParallelProjects, setMaxParallelProjects] = useState<string | null>(null);
@@ -69,6 +72,26 @@ export function SettingsPageContent() {
           </form>
         </CardContent>
       </Card>
+
+      <NameEntityCard
+        title="QA Groups"
+        itemNoun="QA Group"
+        queryKey="qa-groups"
+        getItems={getQaGroups}
+        createItem={createQaGroup}
+        updateItem={updateQaGroup}
+        deleteItem={deleteQaGroup}
+      />
+
+      <NameEntityCard
+        title="Products"
+        itemNoun="Product"
+        queryKey="products"
+        getItems={getProducts}
+        createItem={createProduct}
+        updateItem={updateProduct}
+        deleteItem={deleteProduct}
+      />
     </div>
   );
 }
