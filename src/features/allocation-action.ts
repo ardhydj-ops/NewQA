@@ -304,3 +304,29 @@ export async function createBulkAllocations(
 
   return { created, failed };
 }
+
+export async function getAllocationsForProject(projectId: string): Promise<Allocation[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("allocations")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Allocation[];
+}
+
+export async function getApprovedAllocationCountsByProject(): Promise<Record<string, number>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("allocations")
+    .select("project_id")
+    .eq("approval_status", "approved");
+  if (error) throw new Error(error.message);
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.project_id] = (counts[row.project_id] ?? 0) + 1;
+  }
+  return counts;
+}
