@@ -7,7 +7,7 @@ export const ProjectInput = z.object({
   item_type: z.enum(["project", "support_testing", "problem_incident", "service_request"]),
   start_date: isoDate,
   end_date: isoDate,
-  product: z.enum(["qris_h2h", "qris_bo", "qrcb", "pi", "jv", "ccw"]),
+  product_id: z.string().uuid("Select a product"),
   status: z.enum(["to_do", "ready_sit", "sit", "ready_uat", "uat", "completed"]),
   progress_percent: z.number().int().min(0).max(100),
   total_working_hours: z.number().positive("Total working hours must be greater than 0"),

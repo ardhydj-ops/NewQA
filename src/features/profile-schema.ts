@@ -4,9 +4,7 @@ export const ProfileInput = z.object({
   name: z.string().trim().min(1, "Name is required"),
   email: z.string().trim().email("Enter a valid email"),
   role: z.enum(["qa_lead", "qa_member", "project_manager"]),
-  qa_group: z
-    .enum(["qris_h2h", "qris_bo", "digital_h2h", "digital_bo", "corporate_it"])
-    .optional(),
+  qa_group_id: z.string().uuid().optional(),
   capacity_hours: z.number().positive("Capacity must be greater than 0"),
 });
 export type ProfileInput = z.infer<typeof ProfileInput>;
