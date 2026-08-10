@@ -7,9 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadBar } from "@/components/ui/load-bar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getMonthlyDashboard, getWeeklyDashboard } from "@/features/dashboard-action";
 import { isoWeekRange } from "@/lib/load";
 import type { Product } from "@/lib/project";
+import type { QaGroup } from "@/lib/profile";
 
 function mondayOf(date: Date): string {
   return isoWeekRange(date).start;
@@ -23,6 +25,16 @@ const PRODUCT_LABEL: Record<Product, string> = {
   jv: "JV",
   ccw: "CCW",
 };
+
+const QA_GROUP_LABEL: Record<QaGroup, string> = {
+  qris_h2h: "QRIS H2H",
+  qris_bo: "QRIS BO",
+  digital_h2h: "Digital H2H",
+  digital_bo: "Digital BO",
+  corporate_it: "Corporate IT",
+};
+
+const QA_GROUP_ORDER: QaGroup[] = ["qris_h2h", "qris_bo", "digital_h2h", "digital_bo", "corporate_it"];
 
 export function DashboardPageContent() {
   const today = new Date();
@@ -49,6 +61,21 @@ export function DashboardPageContent() {
     resourceLoad.length > 0
       ? resourceLoad.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / resourceLoad.length
       : 0;
+
+  const groupStats = QA_GROUP_ORDER.map((group) => {
+    const members = resourceLoad.filter((r) => r.profile.qa_group === group);
+    const totalCapacity = members.reduce((sum, r) => sum + r.profile.capacity_hours, 0);
+    const totalAllocated = members.reduce((sum, r) => sum + r.allocatedHours, 0);
+    const avgAvailable =
+      members.length > 0 ? members.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / members.length : 0;
+    return {
+      group,
+      totalCapacity,
+      totalAllocated,
+      availableCapacity: totalCapacity - totalAllocated,
+      avgAvailable,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -106,6 +133,50 @@ export function DashboardPageContent() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardContent className="px-0 pt-6">
+          <h2 className="mb-4 px-6 text-lg font-semibold">Capacity by QA Group</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-6">QA Group</TableHead>
+                <TableHead className="text-right">Total Capacity</TableHead>
+                <TableHead className="text-right">Total Allocated</TableHead>
+                <TableHead className="text-right">Available Capacity</TableHead>
+                <TableHead className="pr-6 text-right">Avg Available Capacity</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {weeklyLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : (
+                groupStats.map((stat) => (
+                  <TableRow key={stat.group}>
+                    <TableCell className="pl-6 text-sm font-medium">{QA_GROUP_LABEL[stat.group]}</TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">
+                      {stat.totalCapacity} <span className="text-muted-foreground">hrs/wk</span>
+                    </TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">
+                      {stat.totalAllocated} <span className="text-muted-foreground">hrs/wk</span>
+                    </TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">
+                      {stat.availableCapacity} <span className="text-muted-foreground">hrs/wk</span>
+                    </TableCell>
+                    <TableCell className="pr-6 text-right text-sm tabular-nums">
+                      {Math.round(stat.avgAvailable)}%
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
