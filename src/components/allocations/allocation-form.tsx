@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createAllocation } from "@/features/allocation-action";
-import type { Project } from "@/lib/project";
+import type { Priority, Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
 
 type AllocationFormProps = {
@@ -33,6 +33,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
   const [hoursPerWeek, setHoursPerWeek] = useState("8");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [priority, setPriority] = useState<Priority>("medium");
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
@@ -44,6 +45,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         hours_per_week: Number(hoursPerWeek),
         start_date: startDate,
         end_date: endDate || undefined,
+        priority,
       }),
     onSuccess: () => {
       toast.success(role === "qa_lead" ? "Resource assigned" : "Assignment proposed — pending QA Lead approval");
@@ -54,6 +56,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
       setHoursPerWeek("8");
       setStartDate("");
       setEndDate("");
+      setPriority("medium");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -104,17 +107,33 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="hours">Allocated Hours (Weekly)</Label>
-        <Input
-          id="hours"
-          type="number"
-          min={1}
-          step={1}
-          value={hoursPerWeek}
-          onChange={(e) => setHoursPerWeek(e.target.value)}
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="hours">Allocated Hours (Weekly)</Label>
+          <Input
+            id="hours"
+            type="number"
+            min={1}
+            step={1}
+            value={hoursPerWeek}
+            onChange={(e) => setHoursPerWeek(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="priority">Priority</Label>
+          <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
+            <SelectTrigger id="priority" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
