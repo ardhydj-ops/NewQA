@@ -10,6 +10,10 @@ export type ProjectStatus =
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
+export type ItemType = "project" | "support_testing" | "problem_incident" | "service_request";
+
+export type Priority = "low" | "medium" | "high" | "critical";
+
 export type Project = {
   id: string;
   name: string;
@@ -18,6 +22,9 @@ export type Project = {
   product: Product;
   status: ProjectStatus;
   progress_percent: number;
+  item_type: ItemType;
+  total_working_hours: number;
+  priority: Priority;
   approval_status: ApprovalStatus;
   proposed_by: string | null;
   created_at: string;
