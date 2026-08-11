@@ -160,6 +160,35 @@ export async function getRangeDashboard(startDateISO: string, endDateISO: string
   };
 }
 
+/**
+ * A QA's approved, non-completed items overlapping the given week — the
+ * detail behind their "Capacity by QA Group" row on the Dashboard.
+ */
+export async function getInProgressProjectsForUser(userId: string, weekStartISO: string): Promise<Project[]> {
+  const week = isoWeekRange(new Date(`${weekStartISO}T00:00:00Z`));
+  const supabase = await createClient();
+
+  const { data: allocations, error } = await supabase
+    .from("allocations")
+    .select("project_id")
+    .eq("user_id", userId)
+    .eq("approval_status", "approved")
+    .lte("start_date", week.end)
+    .or(`end_date.is.null,end_date.gte.${week.start}`);
+  if (error) throw new Error(error.message);
+
+  const projectIds = [...new Set((allocations ?? []).map((a) => a.project_id))];
+  if (projectIds.length === 0) return [];
+
+  const { data: projects, error: projectsError } = await supabase
+    .from("projects")
+    .select("*")
+    .in("id", projectIds)
+    .neq("status", "completed");
+  if (projectsError) throw new Error(projectsError.message);
+  return (projects ?? []) as Project[];
+}
+
 /** Approved work items overlapping the given month, for the Dashboard's calendar view. */
 export async function getProjectsForMonth(year: number, monthIndex0: number): Promise<Project[]> {
   const month = monthRange(year, monthIndex0);

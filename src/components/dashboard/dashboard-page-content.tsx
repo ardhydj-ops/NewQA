@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { LoadBar } from "@/components/ui/load-bar";
 import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { ProductDemandPieChart } from "@/components/dashboard/product-demand-pie-chart";
+import { QaProjectsDialog } from "@/components/dashboard/qa-projects-dialog";
 import { getProjectsForMonth, getWeeklyDashboard } from "@/features/dashboard-action";
 import { getProducts } from "@/features/product-action";
 import { getQaGroups } from "@/features/qa-group-action";
@@ -27,6 +28,7 @@ export function DashboardPageContent() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(today));
   const [year, setYear] = useState(today.getUTCFullYear());
   const [monthIndex0, setMonthIndex0] = useState(today.getUTCMonth());
+  const [selectedQa, setSelectedQa] = useState<{ id: string; name: string } | null>(null);
 
   const { data: weekly, isLoading: weeklyLoading } = useQuery({
     queryKey: ["weekly-dashboard", weekStart],
@@ -151,7 +153,13 @@ export function DashboardPageContent() {
                   <div className="space-y-2">
                     {group.members.map((row) => (
                       <div key={row.profile.id} className="flex items-center gap-3">
-                        <span className="w-32 truncate text-sm font-medium">{row.profile.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedQa({ id: row.profile.id, name: row.profile.name })}
+                          className="w-32 truncate text-left text-sm font-medium hover:underline"
+                        >
+                          {row.profile.name}
+                        </button>
                         <span className="w-24 text-xs text-muted-foreground">
                           {round2(row.allocatedHours)}/{row.profile.capacity_hours} hrs
                         </span>
@@ -204,6 +212,18 @@ export function DashboardPageContent() {
           )}
         </CardContent>
       </Card>
+
+      {selectedQa && (
+        <QaProjectsDialog
+          userId={selectedQa.id}
+          userName={selectedQa.name}
+          weekStart={weekStart}
+          open
+          onOpenChange={(o) => {
+            if (!o) setSelectedQa(null);
+          }}
+        />
+      )}
     </div>
   );
 }
