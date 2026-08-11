@@ -6,8 +6,6 @@ import {
   monthRange,
   weeklyHoursForUser,
   weeklyLoadPercent,
-  monthlyHoursForUser,
-  monthlyHoursForProject,
   monthlyHoursForUser as rangeHoursForUser,
   monthlyHoursForProject as rangeHoursForProject,
   weeksBetween,
@@ -61,7 +59,7 @@ export type WeeklyDashboard = {
   totalAllocated: number;
   availableCapacity: number;
   resourceLoad: ResourceLoadRow[];
-  topDemand: { project: Project; hours: number }[];
+  demandByProduct: { productId: string; hours: number }[];
 };
 
 export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDashboard> {
@@ -91,25 +89,29 @@ export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDa
   const projectIds = [...hoursByProject.keys()];
   const projects = await getProjectsByIds(projectIds);
 
-  const topDemand = projects
-    .map((project) => ({ project, hours: hoursByProject.get(project.id) ?? 0 }))
-    .sort((a, b) => b.hours - a.hours)
-    .slice(0, 5);
+  const hoursByProductId = new Map<string, number>();
+  for (const project of projects) {
+    const hours = hoursByProject.get(project.id) ?? 0;
+    hoursByProductId.set(project.product_id, (hoursByProductId.get(project.product_id) ?? 0) + hours);
+  }
+  const demandByProduct = [...hoursByProductId.entries()]
+    .map(([productId, hours]) => ({ productId, hours }))
+    .sort((a, b) => b.hours - a.hours);
 
   return {
     totalCapacity,
     totalAllocated,
     availableCapacity: totalCapacity - totalAllocated,
     resourceLoad,
-    topDemand,
+    demandByProduct,
   };
 }
 
 /**
  * Same shape as `getWeeklyDashboard`, but for an arbitrary [start, end] range
  * instead of one fixed ISO week — `allocatedHours` per QA (and `hours` per
- * project in `topDemand`) is the range's total prorated hours divided by
- * how many weeks the range spans, i.e. an average hrs/week figure, so the
+ * product in `demandByProduct`) is the range's total prorated hours divided
+ * by how many weeks the range spans, i.e. an average hrs/week figure, so the
  * existing 80%/100% load thresholds and hrs/wk-labeled UI keep meaning
  * unchanged no matter how wide a range is picked.
  */
@@ -140,43 +142,34 @@ export async function getRangeDashboard(startDateISO: string, endDateISO: string
   const projectIds = [...new Set(allocations.map((a) => a.project_id))];
   const projects = await getProjectsByIds(projectIds);
 
-  const topDemand = projects
-    .map((project) => ({ project, hours: rangeHoursForProject(allocations, project.id, range) / weeks }))
-    .sort((a, b) => b.hours - a.hours)
-    .slice(0, 5);
+  const hoursByProductId = new Map<string, number>();
+  for (const project of projects) {
+    const hours = rangeHoursForProject(allocations, project.id, range) / weeks;
+    hoursByProductId.set(project.product_id, (hoursByProductId.get(project.product_id) ?? 0) + hours);
+  }
+  const demandByProduct = [...hoursByProductId.entries()]
+    .map(([productId, hours]) => ({ productId, hours }))
+    .sort((a, b) => b.hours - a.hours);
 
   return {
     totalCapacity,
     totalAllocated,
     availableCapacity: totalCapacity - totalAllocated,
     resourceLoad,
-    topDemand,
+    demandByProduct,
   };
 }
 
-export type MonthlyMemberRow = { profile: Profile; hours: number };
-export type MonthlyProjectRow = { project: Project; hours: number };
-
-export async function getMonthlyDashboard(
-  year: number,
-  monthIndex0: number,
-): Promise<{ perMember: MonthlyMemberRow[]; perProject: MonthlyProjectRow[] }> {
+/** Approved work items overlapping the given month, for the Dashboard's calendar view. */
+export async function getProjectsForMonth(year: number, monthIndex0: number): Promise<Project[]> {
   const month = monthRange(year, monthIndex0);
-  const [resources, allocations] = await Promise.all([
-    getActiveResources(),
-    getApprovedAllocationsInRange(month.start, month.end),
-  ]);
-
-  const perMember = resources
-    .map((profile) => ({ profile, hours: monthlyHoursForUser(allocations, profile.id, month) }))
-    .sort((a, b) => b.hours - a.hours);
-
-  const projectIds = [...new Set(allocations.map((a) => a.project_id))];
-  const projects = await getProjectsByIds(projectIds);
-
-  const perProject = projects
-    .map((project) => ({ project, hours: monthlyHoursForProject(allocations, project.id, month) }))
-    .sort((a, b) => b.hours - a.hours);
-
-  return { perMember, perProject };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("approval_status", "approved")
+    .lte("start_date", month.end)
+    .or(`end_date.is.null,end_date.gte.${month.start}`);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Project[];
 }
