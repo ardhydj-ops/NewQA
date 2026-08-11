@@ -21,7 +21,7 @@ export type Project = {
   status: ProjectStatus;
   progress_percent: number;
   item_type: ItemType;
-  total_working_hours: number;
+  total_working_days: number;
   priority: Priority;
   jira_link: string;
   jiva_link: string;

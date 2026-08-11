@@ -3,7 +3,7 @@ export type DateRange = { start: string; end: string };
 export type AllocationForCalc = {
   user_id: string;
   project_id: string;
-  hours_per_week: number;
+  days_per_week: number;
   start_date: string;
   end_date: string | null;
 };
@@ -50,19 +50,19 @@ function overlapDays(allocation: AllocationForCalc, range: DateRange): number {
   return Math.round((toUTCDate(end).getTime() - toUTCDate(start).getTime()) / MS_PER_DAY) + 1;
 }
 
-export function weeklyHoursForUser(
+export function weeklyDaysForUser(
   allocations: AllocationForCalc[],
   userId: string,
   week: DateRange,
 ): number {
   return allocations
     .filter((a) => a.user_id === userId && overlapsRange(a, week))
-    .reduce((sum, a) => sum + a.hours_per_week, 0);
+    .reduce((sum, a) => sum + a.days_per_week, 0);
 }
 
-export function weeklyLoadPercent(allocatedHours: number, capacityHours: number): number {
-  if (capacityHours <= 0) return 0;
-  return (allocatedHours / capacityHours) * 100;
+export function weeklyLoadPercent(allocatedDays: number, capacityDays: number): number {
+  if (capacityDays <= 0) return 0;
+  return (allocatedDays / capacityDays) * 100;
 }
 
 export type LoadStatus = "ok" | "warn" | "critical";
@@ -73,25 +73,25 @@ export function loadStatus(percent: number): LoadStatus {
   return "ok";
 }
 
-/** Hours in `month`, prorated by day (hours_per_week / 7 * overlap days). */
-export function monthlyHoursForUser(
+/** Days in `month`, prorated by day (days_per_week / 7 * overlap days). */
+export function monthlyDaysForUser(
   allocations: AllocationForCalc[],
   userId: string,
   month: DateRange,
 ): number {
   return allocations
     .filter((a) => a.user_id === userId)
-    .reduce((sum, a) => sum + (a.hours_per_week / 7) * overlapDays(a, month), 0);
+    .reduce((sum, a) => sum + (a.days_per_week / 7) * overlapDays(a, month), 0);
 }
 
-export function monthlyHoursForProject(
+export function monthlyDaysForProject(
   allocations: AllocationForCalc[],
   projectId: string,
   month: DateRange,
 ): number {
   return allocations
     .filter((a) => a.project_id === projectId)
-    .reduce((sum, a) => sum + (a.hours_per_week / 7) * overlapDays(a, month), 0);
+    .reduce((sum, a) => sum + (a.days_per_week / 7) * overlapDays(a, month), 0);
 }
 
 /** Inclusive weeks spanned by [startDate, endDate]; always at least 1. */
@@ -100,14 +100,11 @@ export function weeksBetween(startDate: string, endDate: string): number {
   return Math.max(1, days / 7);
 }
 
-/** Count of Mon-Fri calendar days in [startDate, endDate], inclusive. */
-export function weekdaysBetween(startDate: string, endDate: string): number {
-  let count = 0;
-  for (let d = toUTCDate(startDate); d <= toUTCDate(endDate); d = new Date(d.getTime() + MS_PER_DAY)) {
-    const day = d.getUTCDay();
-    if (day !== 0 && day !== 6) count++;
-  }
-  return count;
+/** Months spanned by [startDate, endDate], as a fraction; always at least 1
+ *  (mirrors weeksBetween's day/7 pattern, but day/30). */
+export function monthsBetween(startDate: string, endDate: string): number {
+  const days = Math.round((toUTCDate(endDate).getTime() - toUTCDate(startDate).getTime()) / MS_PER_DAY) + 1;
+  return Math.max(1, days / 30);
 }
 
 export type DatedRange = { start_date: string; end_date: string | null };

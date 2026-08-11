@@ -6,7 +6,7 @@ export type Profile = {
   email: string;
   role: ProfileRole;
   qa_group_id: string | null;
-  capacity_hours: number;
+  capacity_days: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -5,7 +5,7 @@ export type Allocation = {
   user_id: string;
   project_id: string;
   role_on_project: string;
-  hours_per_week: number;
+  days_per_week: number;
   start_date: string;
   end_date: string | null;
   priority: Priority;
@@ -13,7 +13,7 @@ export type Allocation = {
   proposed_by: string | null;
   proposed_start_date: string | null;
   proposed_end_date: string | null;
-  proposed_hours_per_week: number | null;
+  proposed_days_per_week: number | null;
   proposed_priority: Priority | null;
   change_proposed_by: string | null;
   change_requested_at: string | null;
