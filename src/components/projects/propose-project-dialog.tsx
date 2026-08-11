@@ -51,8 +51,9 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   const [endDate, setEndDate] = useState("");
   const [productId, setProductId] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("to_do");
-  const [totalWorkingHours, setTotalWorkingHours] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
+  const [jiraLink, setJiraLink] = useState("");
+  const [jivaLink, setJivaLink] = useState("");
   const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow()]);
   const queryClient = useQueryClient();
 
@@ -77,8 +78,9 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           product_id: productId,
           status,
           progress_percent: 0,
-          total_working_hours: Number(totalWorkingHours),
           priority,
+          jira_link: jiraLink,
+          jiva_link: jivaLink,
         },
         allocations: rows.map((row) => ({
           user_id: row.user_id,
@@ -94,7 +96,8 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
       setName("");
       setStartDate("");
       setEndDate("");
-      setTotalWorkingHours("");
+      setJiraLink("");
+      setJivaLink("");
       setRows([emptyAllocationRow()]);
       onOpenChange(false);
     },
@@ -185,18 +188,6 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="proposal_hours">Total Working Hours</Label>
-              <Input
-                id="proposal_hours"
-                type="number"
-                min={1}
-                step={1}
-                value={totalWorkingHours}
-                onChange={(e) => setTotalWorkingHours(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="proposal_priority">Priority</Label>
               <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
                 <SelectTrigger id="proposal_priority" className="w-full">
@@ -209,6 +200,31 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                   <SelectItem value="critical">Critical</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="proposal_jira">JIRA Link</Label>
+              <Input
+                id="proposal_jira"
+                type="url"
+                placeholder="https://..."
+                value={jiraLink}
+                onChange={(e) => setJiraLink(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="proposal_jiva">Jiva Link</Label>
+              <Input
+                id="proposal_jiva"
+                type="url"
+                placeholder="https://..."
+                value={jivaLink}
+                onChange={(e) => setJivaLink(e.target.value)}
+                required
+              />
             </div>
           </div>
 

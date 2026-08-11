@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react";
+import { ExternalLink, MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -91,7 +91,7 @@ export function ProjectTable({
   const canEdit = role === "qa_lead";
   const canPropose = role === "project_manager";
   const showActions = canEdit || canPropose;
-  const columnCount = showActions ? 10 : 9;
+  const columnCount = showActions ? 11 : 10;
 
   const deleteMutation = useMutation({
     mutationFn: deleteProject,
@@ -128,6 +128,7 @@ export function ProjectTable({
               <TableHead className="text-right">Total Hrs</TableHead>
               <TableHead>Progress</TableHead>
               <TableHead>Assigned</TableHead>
+              <TableHead>Links</TableHead>
               {showActions && <TableHead className="pr-6 text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -144,6 +145,7 @@ export function ProjectTable({
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="ml-auto h-4 w-10" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                   {showActions && <TableCell className="pr-6"><Skeleton className="ml-auto size-8 rounded-md" /></TableCell>}
                 </TableRow>
@@ -207,6 +209,24 @@ export function ProjectTable({
                     >
                       {assignmentCounts[project.id] ?? 0} QA{(assignmentCounts[project.id] ?? 0) === 1 ? "" : "s"}
                     </Button>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {project.jira_link && (
+                        <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs" asChild>
+                          <a href={project.jira_link} target="_blank" rel="noopener noreferrer">
+                            JIRA <ExternalLink className="size-3" />
+                          </a>
+                        </Button>
+                      )}
+                      {project.jiva_link && (
+                        <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs" asChild>
+                          <a href={project.jiva_link} target="_blank" rel="noopener noreferrer">
+                            Jiva <ExternalLink className="size-3" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                   {showActions && (
                     <TableCell className="pr-6 text-right">

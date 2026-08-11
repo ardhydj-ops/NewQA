@@ -35,6 +35,8 @@ type FormState = {
   progress_percent: string;
   total_working_hours: string;
   priority: Priority;
+  jira_link: string;
+  jiva_link: string;
 };
 
 function formFromProject(project?: Project): FormState {
@@ -49,6 +51,8 @@ function formFromProject(project?: Project): FormState {
         progress_percent: String(project.progress_percent),
         total_working_hours: String(project.total_working_hours),
         priority: project.priority,
+        jira_link: project.jira_link,
+        jiva_link: project.jiva_link,
       }
     : {
         name: "",
@@ -60,6 +64,8 @@ function formFromProject(project?: Project): FormState {
         progress_percent: "0",
         total_working_hours: "",
         priority: "medium",
+        jira_link: "",
+        jiva_link: "",
       };
 }
 
@@ -92,6 +98,8 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
         progress_percent: Number(form.progress_percent),
         total_working_hours: Number(form.total_working_hours),
         priority: form.priority,
+        jira_link: form.jira_link,
+        jiva_link: form.jiva_link,
       };
       return isEdit && initialValue ? updateProject(initialValue.id, payload) : createProject(payload);
     },
@@ -223,7 +231,32 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
             </div>
           </div>
 
-          {form.status !== "completed" && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="jira_link">JIRA Link</Label>
+              <Input
+                id="jira_link"
+                type="url"
+                placeholder="https://..."
+                value={form.jira_link}
+                onChange={(e) => setForm((f) => ({ ...f, jira_link: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="jiva_link">Jiva Link</Label>
+              <Input
+                id="jiva_link"
+                type="url"
+                placeholder="https://..."
+                value={form.jiva_link}
+                onChange={(e) => setForm((f) => ({ ...f, jiva_link: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+
+          {isEdit && form.status !== "completed" && (
             <div className="space-y-2">
               <Label htmlFor="progress">Progress %</Label>
               <Input
