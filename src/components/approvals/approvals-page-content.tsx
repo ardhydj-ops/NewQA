@@ -61,8 +61,8 @@ export function ApprovalsPageContent() {
   }
 
   const approveProjectMutation = useMutation({
-    mutationFn: ({ id, totalWorkingHours }: { id: string; totalWorkingHours: number }) =>
-      approveProjectProposal(id, { total_working_hours: totalWorkingHours }),
+    mutationFn: ({ id, totalWorkingDays }: { id: string; totalWorkingDays: number }) =>
+      approveProjectProposal(id, { total_working_days: totalWorkingDays }),
     onSuccess: () => {
       toast.success("Project approved");
       invalidateAll();
@@ -139,8 +139,8 @@ export function ApprovalsPageContent() {
                 key={proposal.id}
                 proposal={proposal}
                 productName={productNameById.get(proposal.product_id) ?? "—"}
-                onApprove={(totalWorkingHours) =>
-                  approveProjectMutation.mutate({ id: proposal.id, totalWorkingHours })
+                onApprove={(totalWorkingDays) =>
+                  approveProjectMutation.mutate({ id: proposal.id, totalWorkingDays })
                 }
                 onReject={() => rejectProjectMutation.mutate(proposal.id)}
                 approving={approveProjectMutation.isPending}
@@ -161,7 +161,7 @@ export function ApprovalsPageContent() {
               <TableRow>
                 <TableHead className="pl-6">Project</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead className="text-right">Hours/Wk</TableHead>
+                <TableHead className="text-right">Days/Wk</TableHead>
                 <TableHead>Timeline</TableHead>
                 <TableHead className="pr-6 text-right">Actions</TableHead>
               </TableRow>
@@ -184,7 +184,7 @@ export function ApprovalsPageContent() {
                   <TableRow key={allocation.id}>
                     <TableCell className="pl-6">{projectNameById.get(allocation.project_id) ?? "—"}</TableCell>
                     <TableCell>{allocation.role_on_project}</TableCell>
-                    <TableCell className="text-right tabular-nums">{allocation.hours_per_week}</TableCell>
+                    <TableCell className="text-right tabular-nums">{allocation.days_per_week}</TableCell>
                     <TableCell>
                       {formatDate(allocation.start_date)} – {allocation.end_date ? formatDate(allocation.end_date) : "Ongoing"}
                     </TableCell>
@@ -254,7 +254,7 @@ export function ApprovalsPageContent() {
                   <TableHeader>
                     <TableRow>
                       <TableHead />
-                      <TableHead className="text-right">Hours/Wk</TableHead>
+                      <TableHead className="text-right">Days/Wk</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Timeline</TableHead>
                     </TableRow>
@@ -262,7 +262,7 @@ export function ApprovalsPageContent() {
                   <TableBody>
                     <TableRow>
                       <TableCell className="text-sm text-muted-foreground">Current</TableCell>
-                      <TableCell className="text-right tabular-nums">{allocation.hours_per_week}</TableCell>
+                      <TableCell className="text-right tabular-nums">{allocation.days_per_week}</TableCell>
                       <TableCell>{allocation.priority}</TableCell>
                       <TableCell>
                         {formatDate(allocation.start_date)} –{" "}
@@ -272,7 +272,7 @@ export function ApprovalsPageContent() {
                     <TableRow>
                       <TableCell className="text-sm font-medium">Proposed</TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
-                        {allocation.proposed_hours_per_week}
+                        {allocation.proposed_days_per_week}
                       </TableCell>
                       <TableCell className="font-medium">{allocation.proposed_priority}</TableCell>
                       <TableCell className="font-medium">
