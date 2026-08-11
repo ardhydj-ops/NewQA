@@ -113,9 +113,11 @@ export function monthsBetween(startDate: string, endDate: string): number {
 
 Auto-fill becomes `Math.round(monthsBetween(startDate, endDate) * 22 * 2) /
 2` (rounded to the nearest half-day per §2). Example: Aug 20–Sep 10 (22 days)
-→ 22/30 ≈ 0.73 months → 0.73 × 22 ≈ 16.13 → rounds to 16.0 days. A project
-spanning under a month still gets at least 1 month's worth (22 days),
-matching how `weeksBetween` already guarantees at least 1 week.
+→ 22/30 ≈ 0.73 months, but `monthsBetween`'s `Math.max(1, ...)` floors that to
+1 month → 1 × 22 = 22 days. A project spanning under a month always gets at
+least 1 month's worth (22 days), matching how `weeksBetween` already
+guarantees at least 1 week — confirmed against the live app during Task 10's
+smoke test.
 
 `weekdaysBetween` becomes dead code once these are its only two callers, and
 is removed from `src/lib/load.ts` as part of this work.
