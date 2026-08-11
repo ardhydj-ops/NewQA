@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createAllocation } from "@/features/allocation-action";
+import { createAllocation, getRemainingProjectHours } from "@/features/allocation-action";
+import { weeksBetween } from "@/lib/load";
 import type { Priority, Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
 
@@ -30,11 +31,33 @@ type AllocationFormProps = {
 export function AllocationForm({ userId, userName, capacityHours, allocatedHours, projects, role }: AllocationFormProps) {
   const [projectId, setProjectId] = useState("");
   const [roleOnProject, setRoleOnProject] = useState("");
-  const [hoursPerWeek, setHoursPerWeek] = useState("8");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const queryClient = useQueryClient();
+
+  const selectedProject = projects.find((p) => p.id === projectId) ?? null;
+
+  const { data: remainingHours } = useQuery({
+    queryKey: ["remaining-project-hours", projectId],
+    queryFn: () => getRemainingProjectHours(projectId),
+    enabled: projectId !== "",
+  });
+
+  function handleProjectChange(value: string) {
+    setProjectId(value);
+    const project = projects.find((p) => p.id === value);
+    setStartDate(project?.start_date ?? "");
+    setEndDate(project?.end_date ?? "");
+  }
+
+  const remainingCapacity = Math.max(0, capacityHours - allocatedHours);
+  const validDates = startDate !== "" && endDate !== "" && endDate >= startDate;
+  const weeks = validDates ? weeksBetween(startDate, endDate) : null;
+  const computedHoursPerWeek = remainingHours !== undefined && weeks !== null ? remainingHours / weeks : null;
+  const overCapacity = computedHoursPerWeek !== null && computedHoursPerWeek > remainingCapacity;
+  const canSubmit =
+    projectId !== "" && roleOnProject.trim() !== "" && computedHoursPerWeek !== null && computedHoursPerWeek > 0 && !overCapacity;
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -42,7 +65,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         user_id: userId,
         project_id: projectId,
         role_on_project: roleOnProject,
-        hours_per_week: Number(hoursPerWeek),
+        hours_per_week: computedHoursPerWeek!,
         start_date: startDate,
         end_date: endDate || undefined,
         priority,
@@ -50,10 +73,11 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
     onSuccess: () => {
       toast.success(role === "qa_lead" ? "Resource assigned" : "Assignment proposed — pending QA Lead approval");
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations", "user", userId] });
+      queryClient.invalidateQueries({ queryKey: ["remaining-project-hours", projectId] });
       setProjectId("");
       setRoleOnProject("");
-      setHoursPerWeek("8");
       setStartDate("");
       setEndDate("");
       setPriority("medium");
@@ -76,13 +100,13 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Remaining Capacity</span>
-          <span className="font-medium">{Math.max(0, capacityHours - allocatedHours)} hrs / week</span>
+          <span className="font-medium">{Math.round(remainingCapacity * 10) / 10} hrs / week</span>
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="project">Target Project</Label>
-        <Select value={projectId} onValueChange={setProjectId}>
+        <Select value={projectId} onValueChange={handleProjectChange}>
           <SelectTrigger id="project" className="w-full">
             <SelectValue placeholder="Select a project..." />
           </SelectTrigger>
@@ -94,6 +118,12 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
             ))}
           </SelectContent>
         </Select>
+        {selectedProject && (
+          <p className="text-xs text-muted-foreground">
+            Remaining hours for this item:{" "}
+            {remainingHours !== undefined ? `${Math.round(remainingHours * 10) / 10} hrs` : "..."}
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -107,48 +137,64 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="hours">Allocated Hours (Weekly)</Label>
-          <Input
-            id="hours"
-            type="number"
-            min={1}
-            step={1}
-            value={hoursPerWeek}
-            onChange={(e) => setHoursPerWeek(e.target.value)}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="priority">Priority</Label>
-          <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
-            <SelectTrigger id="priority" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="priority">Priority</Label>
+        <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
+          <SelectTrigger id="priority" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="critical">Critical</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="start_date">Start</Label>
-          <Input id="start_date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+          <Input
+            id="start_date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            min={selectedProject?.start_date}
+            max={selectedProject?.end_date ?? undefined}
+            required
+            disabled={!projectId}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="end_date">End</Label>
-          <Input id="end_date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <Input
+            id="end_date"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            min={selectedProject?.start_date}
+            max={selectedProject?.end_date ?? undefined}
+            required
+            disabled={!projectId}
+          />
         </div>
       </div>
 
+      {startDate !== "" && endDate !== "" && endDate < startDate && (
+        <p className="text-sm text-rose-600">End date must be on or after start date.</p>
+      )}
+
+      {computedHoursPerWeek !== null && (
+        <p className={`text-sm ${overCapacity ? "text-rose-600" : "text-muted-foreground"}`}>
+          This will allocate ~{Math.round(computedHoursPerWeek * 10) / 10} hrs/week.
+          {overCapacity &&
+            ` This QA only has ${Math.round(remainingCapacity * 10) / 10} hrs/week available — widen the date range or pick a different QA.`}
+        </p>
+      )}
+
       <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={!projectId || mutation.isPending}>
+        <Button type="submit" disabled={!canSubmit || mutation.isPending}>
           {mutation.isPending ? "Assigning..." : role === "qa_lead" ? "Assign Resource" : "Propose Assignment"}
         </Button>
       </div>
