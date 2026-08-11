@@ -19,8 +19,8 @@ function mondayOf(date: Date): string {
   return isoWeekRange(date).start;
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+function roundHalf(value: number): number {
+  return Math.round(value * 2) / 2;
 }
 
 export function DashboardPageContent() {
@@ -59,16 +59,16 @@ export function DashboardPageContent() {
 
   const groupSections = (qaGroups ?? []).map((group) => {
     const members = resourceLoad.filter((r) => r.profile.qa_group_id === group.id);
-    const totalCapacity = members.reduce((sum, r) => sum + r.profile.capacity_hours, 0);
-    const totalAllocated = members.reduce((sum, r) => sum + r.allocatedHours, 0);
+    const totalCapacity = members.reduce((sum, r) => sum + r.profile.capacity_days, 0);
+    const totalAllocated = members.reduce((sum, r) => sum + r.allocatedDays, 0);
     const avgAvailable =
       members.length > 0 ? members.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / members.length : 0;
     return { id: group.id, name: group.name, members, totalCapacity, totalAllocated, avgAvailable };
   });
   const unassignedMembers = resourceLoad.filter((r) => r.profile.qa_group_id === null);
   if (unassignedMembers.length > 0) {
-    const totalCapacity = unassignedMembers.reduce((sum, r) => sum + r.profile.capacity_hours, 0);
-    const totalAllocated = unassignedMembers.reduce((sum, r) => sum + r.allocatedHours, 0);
+    const totalCapacity = unassignedMembers.reduce((sum, r) => sum + r.profile.capacity_days, 0);
+    const totalAllocated = unassignedMembers.reduce((sum, r) => sum + r.allocatedDays, 0);
     const avgAvailable =
       unassignedMembers.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / unassignedMembers.length;
     groupSections.push({
@@ -107,7 +107,7 @@ export function DashboardPageContent() {
           <CardContent className="space-y-1 pt-6">
             <p className="text-xs font-medium uppercase text-muted-foreground">Total QA Capacity</p>
             <p className="text-3xl font-bold tabular-nums">
-              {weekly?.totalCapacity ?? 0} <span className="text-sm font-normal text-muted-foreground">hrs/wk</span>
+              {weekly?.totalCapacity ?? 0} <span className="text-sm font-normal text-muted-foreground">days/wk</span>
             </p>
           </CardContent>
         </Card>
@@ -115,7 +115,7 @@ export function DashboardPageContent() {
           <CardContent className="space-y-2 pt-6">
             <p className="text-xs font-medium uppercase text-muted-foreground">Total Allocated</p>
             <p className="text-3xl font-bold tabular-nums">
-              {round2(weekly?.totalAllocated ?? 0)} <span className="text-sm font-normal text-muted-foreground">hrs/wk</span>
+              {roundHalf(weekly?.totalAllocated ?? 0)} <span className="text-sm font-normal text-muted-foreground">days/wk</span>
             </p>
             <LoadBar percent={allocatedPercent} />
           </CardContent>
@@ -124,8 +124,8 @@ export function DashboardPageContent() {
           <CardContent className="space-y-1 pt-6">
             <p className="text-xs font-medium uppercase text-muted-foreground">Available Capacity</p>
             <p className="text-3xl font-bold tabular-nums">
-              {round2(weekly?.availableCapacity ?? 0)}{" "}
-              <span className="text-sm font-normal text-muted-foreground">hrs/wk</span>
+              {roundHalf(weekly?.availableCapacity ?? 0)}{" "}
+              <span className="text-sm font-normal text-muted-foreground">days/wk</span>
             </p>
           </CardContent>
         </Card>
@@ -148,7 +148,7 @@ export function DashboardPageContent() {
                 <div key={group.id} className="space-y-2">
                   <h3 className="text-xs font-medium uppercase text-muted-foreground">
                     {group.name} — {group.members.length} QA{group.members.length === 1 ? "" : "s"} ·{" "}
-                    {round2(group.totalAllocated)}/{group.totalCapacity} hrs · {Math.round(group.avgAvailable)}% avail
+                    {roundHalf(group.totalAllocated)}/{group.totalCapacity} days · {Math.round(group.avgAvailable)}% avail
                   </h3>
                   <div className="space-y-2">
                     {group.members.map((row) => (
@@ -161,7 +161,7 @@ export function DashboardPageContent() {
                           {row.profile.name}
                         </button>
                         <span className="w-24 text-xs text-muted-foreground">
-                          {round2(row.allocatedHours)}/{row.profile.capacity_hours} hrs
+                          {roundHalf(row.allocatedDays)}/{row.profile.capacity_days} days
                         </span>
                         <LoadBar percent={row.loadPercent} className="flex-1" />
                       </div>
