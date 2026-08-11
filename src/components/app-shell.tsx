@@ -1,6 +1,7 @@
 "use client";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -34,6 +35,7 @@ export function AppShell({
                 <div className="font-medium">{profile.name}</div>
                 <div className="text-xs text-muted-foreground">{ROLE_LABEL[profile.role]}</div>
               </div>
+              <ChangePasswordDialog />
               <SignOutButton />
             </div>
           </header>
