@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -16,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { createAllocation, getRemainingProjectHours, getRemainingUserCapacity } from "@/features/allocation-action";
 import { weeksBetween } from "@/lib/load";
+import { cn } from "@/lib/utils";
 import type { Priority, Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
 
@@ -30,6 +34,7 @@ type AllocationFormProps = {
 
 export function AllocationForm({ userId, userName, capacityHours, allocatedHours, projects, role }: AllocationFormProps) {
   const [projectId, setProjectId] = useState("");
+  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
   const [roleOnProject, setRoleOnProject] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -120,18 +125,46 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
 
       <div className="space-y-2">
         <Label htmlFor="project">Target Project</Label>
-        <Select value={projectId} onValueChange={handleProjectChange}>
-          <SelectTrigger id="project" className="w-full">
-            <SelectValue placeholder="Select a project..." />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              id="project"
+              type="button"
+              variant="outline"
+              role="combobox"
+              aria-expanded={projectPopoverOpen}
+              className="w-full justify-between font-normal"
+            >
+              <span className={cn("truncate", !selectedProject && "text-muted-foreground")}>
+                {selectedProject ? selectedProject.name : "Select a project..."}
+              </span>
+              <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search projects..." />
+              <CommandList>
+                <CommandEmpty>No projects found.</CommandEmpty>
+                <CommandGroup>
+                  {projects.map((project) => (
+                    <CommandItem
+                      key={project.id}
+                      value={project.name}
+                      onSelect={() => {
+                        handleProjectChange(project.id);
+                        setProjectPopoverOpen(false);
+                      }}
+                    >
+                      <Check className={cn("size-4", project.id === projectId ? "opacity-100" : "opacity-0")} />
+                      {project.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
         {selectedProject && (
           <p className="text-xs text-muted-foreground">
             Remaining hours for this item:{" "}
