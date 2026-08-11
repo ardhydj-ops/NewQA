@@ -10,6 +10,7 @@ import { LoadBar } from "@/components/ui/load-bar";
 import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { ProductDemandPieChart } from "@/components/dashboard/product-demand-pie-chart";
 import { QaProjectsDialog } from "@/components/dashboard/qa-projects-dialog";
+import { TopUtilizedQaChart } from "@/components/dashboard/top-utilized-qa-chart";
 import { getProjectsForMonth, getWeeklyDashboard } from "@/features/dashboard-action";
 import { getProducts } from "@/features/product-action";
 import { getQaGroups } from "@/features/qa-group-action";
@@ -174,13 +175,29 @@ export function DashboardPageContent() {
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <h2 className="mb-4 text-lg font-semibold">Product Demand</h2>
-            {weeklyLoading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : (
-              <ProductDemandPieChart data={weekly?.demandByProduct ?? []} productNameById={productNameById} />
-            )}
+          <CardContent className="space-y-6 pt-6">
+            <div>
+              <h2 className="mb-4 text-lg font-semibold">Product Demand</h2>
+              {weeklyLoading ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : (
+                <ProductDemandPieChart data={weekly?.demandByProduct ?? []} productNameById={productNameById} />
+              )}
+            </div>
+            <div>
+              <h2 className="mb-4 text-lg font-semibold">Top Utilized QAs</h2>
+              {weeklyLoading ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : (
+                <TopUtilizedQaChart
+                  data={resourceLoad.map((r) => ({
+                    id: r.profile.id,
+                    name: r.profile.name,
+                    loadPercent: r.loadPercent,
+                  }))}
+                />
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
