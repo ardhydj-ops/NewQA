@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { PendingProjectProposal } from "@/features/approval-action";
 import { formatDate } from "@/lib/format";
+import { weekdaysBetween } from "@/lib/load";
 
 type ProjectProposalCardProps = {
   proposal: PendingProjectProposal;
@@ -28,7 +29,9 @@ export function ProjectProposalCard({
   approving,
   rejecting,
 }: ProjectProposalCardProps) {
-  const [hours, setHours] = useState("");
+  const [hours, setHours] = useState(() =>
+    proposal.end_date ? String(weekdaysBetween(proposal.start_date, proposal.end_date) * 8) : "",
+  );
   const parsedHours = Number(hours);
   const canApprove = hours.trim() !== "" && parsedHours > 0;
 

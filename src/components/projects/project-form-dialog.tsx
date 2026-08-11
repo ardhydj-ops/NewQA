@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { createProject, updateProject } from "@/features/project-action";
 import { getProducts } from "@/features/product-action";
+import { weekdaysBetween } from "@/lib/load";
 import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
 
 type FormState = {
@@ -79,7 +80,15 @@ type ProjectFormDialogProps = {
 export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: ProjectFormDialogProps) {
   const isEdit = mode === "edit";
   const [form, setForm] = useState<FormState>(() => formFromProject(initialValue));
+  // Total Working Hours auto-fills from the dates on create; once the QA
+  // Lead edits it directly, later date changes stop overwriting it.
+  const [hoursTouched, setHoursTouched] = useState(false);
   const queryClient = useQueryClient();
+
+  function applyDateChange(startDate: string, endDate: string) {
+    if (isEdit || hoursTouched || startDate === "" || endDate === "" || endDate < startDate) return;
+    setForm((f) => ({ ...f, total_working_hours: String(weekdaysBetween(startDate, endDate) * 8) }));
+  }
 
   const { data: products } = useQuery({
     queryKey: ["products"],
@@ -152,7 +161,10 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
                 id="start_date"
                 type="date"
                 value={form.start_date}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, start_date: e.target.value }));
+                  applyDateChange(e.target.value, form.end_date);
+                }}
                 required
               />
             </div>
@@ -162,7 +174,10 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
                 id="end_date"
                 type="date"
                 value={form.end_date}
-                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, end_date: e.target.value }));
+                  applyDateChange(form.start_date, e.target.value);
+                }}
                 required
               />
             </div>
@@ -211,7 +226,10 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
                 min={1}
                 step={1}
                 value={form.total_working_hours}
-                onChange={(e) => setForm((f) => ({ ...f, total_working_hours: e.target.value }))}
+                onChange={(e) => {
+                  setHoursTouched(true);
+                  setForm((f) => ({ ...f, total_working_hours: e.target.value }));
+                }}
                 required
               />
             </div>
