@@ -84,7 +84,7 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>QA Group</TableHead>
-              <TableHead className="text-right">Capacity (hrs/wk)</TableHead>
+              <TableHead className="text-right">Capacity (days/wk)</TableHead>
               {canWrite && <TableHead className="pr-6 text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -123,7 +123,7 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
                   <TableCell className="text-sm text-muted-foreground">
                     {profile.qa_group_id ? (qaGroupNameById.get(profile.qa_group_id) ?? "—") : "—"}
                   </TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{profile.capacity_hours}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">{profile.capacity_days}</TableCell>
                   {canWrite && (
                     <TableCell className="pr-6 text-right">
                       <DropdownMenu>

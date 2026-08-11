@@ -31,7 +31,7 @@ type FormState = {
   email: string;
   role: ProfileRole;
   qa_group_id: string; // "none" sentinel, or a qa_groups.id
-  capacity_hours: string;
+  capacity_days: string;
 };
 
 function formFromProfile(profile?: Profile): FormState {
@@ -41,9 +41,9 @@ function formFromProfile(profile?: Profile): FormState {
         email: profile.email,
         role: profile.role,
         qa_group_id: profile.qa_group_id ?? "none",
-        capacity_hours: String(profile.capacity_hours),
+        capacity_days: String(profile.capacity_days),
       }
-    : { name: "", email: "", role: "qa_member", qa_group_id: "none", capacity_hours: "40" };
+    : { name: "", email: "", role: "qa_member", qa_group_id: "none", capacity_days: "5" };
 }
 
 type TeamFormDialogProps = {
@@ -75,7 +75,7 @@ export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamF
         email: form.email,
         role: form.role,
         qa_group_id: form.qa_group_id === "none" ? undefined : form.qa_group_id,
-        capacity_hours: Number(form.capacity_hours),
+        capacity_days: Number(form.capacity_days),
       };
       return isEdit && initialValue
         ? updateProfile(initialValue.id, payload)
@@ -177,14 +177,14 @@ export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamF
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="capacity">Capacity (hrs/wk)</Label>
+              <Label htmlFor="capacity">Capacity (days/wk)</Label>
               <Input
                 id="capacity"
                 type="number"
-                min={1}
-                step={1}
-                value={form.capacity_hours}
-                onChange={(e) => setForm((f) => ({ ...f, capacity_hours: e.target.value }))}
+                min={0.5}
+                step={0.5}
+                value={form.capacity_days}
+                onChange={(e) => setForm((f) => ({ ...f, capacity_days: e.target.value }))}
                 required
               />
             </div>

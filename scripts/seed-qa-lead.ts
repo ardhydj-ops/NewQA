@@ -37,7 +37,7 @@ async function main() {
     name,
     email,
     role: "qa_lead",
-    capacity_hours: 40,
+    capacity_days: 5,
   });
 
   if (insertError) {
