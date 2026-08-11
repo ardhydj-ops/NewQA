@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  CalendarClock,
   ExternalLink,
   MoreHorizontal,
   Pencil,
@@ -40,6 +41,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BulkAssignDialog } from "@/components/allocations/bulk-assign-dialog";
 import { ProjectAssignmentsDialog } from "@/components/projects/project-assignments-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { ProjectRebaselineDialog } from "@/components/projects/project-rebaseline-dialog";
 import { deleteProject, withdrawProjectProposal } from "@/features/project-action";
 import { formatDate } from "@/lib/format";
 import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
@@ -149,6 +151,7 @@ export function ProjectTable({
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const [viewingProject, setViewingProject] = useState<Project | null>(null);
   const [assigningProject, setAssigningProject] = useState<Project | null>(null);
+  const [rebaseliningProject, setRebaseliningProject] = useState<Project | null>(null);
   const queryClient = useQueryClient();
 
   const canEdit = role === "qa_lead";
@@ -256,6 +259,11 @@ export function ProjectTable({
                         Rejected
                       </Badge>
                     )}
+                    {project.proposed_start_date !== null && (
+                      <Badge variant="outline" className="ml-2 border-amber-200 bg-amber-50 text-amber-700">
+                        Rebaseline Pending
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -321,6 +329,17 @@ export function ProjectTable({
                             <UserPlus className="size-4" />
                           </Button>
                         )}
+                        {canPropose && project.approval_status === "approved" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setRebaseliningProject(project)}
+                            aria-label="Rebaseline"
+                          >
+                            <CalendarClock className="size-4" />
+                          </Button>
+                        )}
                         {canEdit && project.approval_status === "approved" && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -373,6 +392,17 @@ export function ProjectTable({
           open
           onOpenChange={(o) => {
             if (!o) setAssigningProject(null);
+          }}
+        />
+      )}
+
+      {rebaseliningProject && (
+        <ProjectRebaselineDialog
+          key={rebaseliningProject.id}
+          project={rebaseliningProject}
+          open
+          onOpenChange={(o) => {
+            if (!o) setRebaseliningProject(null);
           }}
         />
       )}
