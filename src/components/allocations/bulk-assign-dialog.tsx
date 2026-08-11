@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createBulkAllocations } from "@/features/allocation-action";
+import { createBulkAllocations, getRemainingProjectHours } from "@/features/allocation-action";
 import { getAssignableProfiles } from "@/features/profile-action";
 import { getProjects } from "@/features/project-action";
 import { weeksBetween } from "@/lib/load";
@@ -53,11 +53,16 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
 
   const selectedProject = (projects ?? []).find((p) => p.id === projectId) ?? null;
 
-  const previewHoursPerWeek = useMemo(() => {
-    if (!selectedProject || !selectedProject.end_date || selectedUserIds.length === 0) return null;
-    const weeks = weeksBetween(selectedProject.start_date, selectedProject.end_date);
-    return selectedProject.total_working_hours / selectedUserIds.length / weeks;
-  }, [selectedProject, selectedUserIds.length]);
+  const { data: remainingHours } = useQuery({
+    queryKey: ["remaining-project-hours", projectId],
+    queryFn: () => getRemainingProjectHours(projectId),
+    enabled: projectId !== "",
+  });
+
+  const previewHoursPerWeek =
+    selectedProject && selectedProject.end_date && remainingHours !== undefined && selectedUserIds.length > 0
+      ? remainingHours / selectedUserIds.length / weeksBetween(selectedProject.start_date, selectedProject.end_date)
+      : null;
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -81,7 +86,9 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
         toast.error(`Could not assign: ${names}`);
       }
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations"] });
+      queryClient.invalidateQueries({ queryKey: ["remaining-project-hours", projectId] });
       setProjectId("");
       setRoleOnProject("");
       setSelectedUserIds([]);
@@ -100,7 +107,7 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
         <DialogHeader>
           <DialogTitle>Add project (even split)</DialogTitle>
           <DialogDescription>
-            Total working hours are split evenly across the QA members you select.
+            Remaining working hours are split evenly across the QA members you select.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -124,6 +131,12 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
                 ))}
               </SelectContent>
             </Select>
+            {selectedProject && (
+              <p className="text-xs text-muted-foreground">
+                Remaining hours for this item:{" "}
+                {remainingHours !== undefined ? `${Math.round(remainingHours * 10) / 10} hrs` : "..."}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
