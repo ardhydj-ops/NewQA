@@ -23,6 +23,8 @@ export type Project = {
   item_type: ItemType;
   total_working_hours: number;
   priority: Priority;
+  jira_link: string;
+  jiva_link: string;
   approval_status: ApprovalStatus;
   proposed_by: string | null;
   created_at: string;
