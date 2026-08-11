@@ -9,7 +9,7 @@ import {
   AllocationChangeInput,
   BulkAllocationInput,
 } from "@/features/allocation-schema";
-import { monthlyHoursForUser, overlappingProjectCount, weeksBetween } from "@/lib/load";
+import { monthlyDaysForUser, overlappingProjectCount, weeksBetween } from "@/lib/load";
 import type { Allocation } from "@/lib/allocation";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -109,7 +109,7 @@ export async function createAllocation(input: unknown): Promise<{ success: true 
     user_id: parsed.data.user_id,
     project_id: parsed.data.project_id,
     role_on_project: parsed.data.role_on_project,
-    hours_per_week: parsed.data.hours_per_week,
+    days_per_week: parsed.data.days_per_week,
     start_date: parsed.data.start_date,
     end_date: parsed.data.end_date ?? null,
     priority: parsed.data.priority,
@@ -146,7 +146,7 @@ export async function updateAllocation(id: string, input: unknown): Promise<{ su
       user_id: parsed.data.user_id,
       project_id: parsed.data.project_id,
       role_on_project: parsed.data.role_on_project,
-      hours_per_week: parsed.data.hours_per_week,
+      days_per_week: parsed.data.days_per_week,
       start_date: parsed.data.start_date,
       end_date: parsed.data.end_date ?? null,
       priority: parsed.data.priority,
@@ -221,7 +221,7 @@ export async function proposeAllocationChange(id: string, input: unknown): Promi
     .update({
       proposed_start_date: parsed.data.start_date,
       proposed_end_date: parsed.data.end_date ?? null,
-      proposed_hours_per_week: parsed.data.hours_per_week,
+      proposed_days_per_week: parsed.data.days_per_week,
       proposed_priority: parsed.data.priority,
       change_proposed_by: profile.id,
       change_requested_at: new Date().toISOString(),
@@ -234,12 +234,13 @@ export async function proposeAllocationChange(id: string, input: unknown): Promi
 
 /**
  * Assigns one project/activity to several QAs at once, splitting its
- * `total_working_hours` evenly (per QA, per week, over the item's own
- * date range). Each QA gets an independent allocation row. QA-Lead
- * batches go live immediately (per-QA, subject to the parallel-limit
- * check); PM batches are standalone `pending` proposals, same rule as
- * the single-QA flow. Partial success is expected and reported —
- * one QA failing the limit check doesn't block the others.
+ * `total_working_days` evenly (per QA, per week, over the item's own
+ * date range, rounded to the nearest half-day). Each QA gets an
+ * independent allocation row. QA-Lead batches go live immediately
+ * (per-QA, subject to the parallel-limit check); PM batches are
+ * standalone `pending` proposals, same rule as the single-QA flow.
+ * Partial success is expected and reported — one QA failing the limit
+ * check doesn't block the others.
  */
 export async function createBulkAllocations(
   input: unknown,
@@ -255,7 +256,7 @@ export async function createBulkAllocations(
 
   const { data: project, error: projectError } = await admin
     .from("projects")
-    .select("approval_status, start_date, end_date, total_working_hours")
+    .select("approval_status, start_date, end_date, total_working_days")
     .eq("id", parsed.data.project_id)
     .single();
 
@@ -268,19 +269,19 @@ export async function createBulkAllocations(
 
   const { data: existingAllocations, error: existingError } = await admin
     .from("allocations")
-    .select("hours_per_week, start_date, end_date")
+    .select("days_per_week, start_date, end_date")
     .eq("project_id", parsed.data.project_id)
     .eq("approval_status", "approved");
   if (existingError) throw new Error(existingError.message);
 
   const committed = (existingAllocations ?? []).reduce(
-    (sum, a) => sum + a.hours_per_week * weeksBetween(a.start_date, a.end_date ?? project.end_date!),
+    (sum, a) => sum + a.days_per_week * weeksBetween(a.start_date, a.end_date ?? project.end_date!),
     0,
   );
-  const remainingHours = Math.max(0, project.total_working_hours - committed);
+  const remainingDays = Math.max(0, project.total_working_days - committed);
 
   const weeks = weeksBetween(project.start_date, project.end_date);
-  const hoursPerWeek = remainingHours / parsed.data.user_ids.length / weeks;
+  const daysPerWeek = Math.round((remainingDays / parsed.data.user_ids.length / weeks) * 2) / 2;
   const isLead = profile.role === "qa_lead";
 
   const created: string[] = [];
@@ -300,7 +301,7 @@ export async function createBulkAllocations(
       user_id: userId,
       project_id: parsed.data.project_id,
       role_on_project: parsed.data.role_on_project,
-      hours_per_week: hoursPerWeek,
+      days_per_week: daysPerWeek,
       start_date: project.start_date,
       end_date: project.end_date,
       priority: "medium",
@@ -319,40 +320,40 @@ export async function createBulkAllocations(
 }
 
 /**
- * `total_working_hours` minus what's already committed to this project by
- * its own *approved* allocations (each converted to a total-hours figure via
- * `hours_per_week * weeksBetween(start, end ?? project.end_date)` — every
+ * `total_working_days` minus what's already committed to this project by
+ * its own *approved* allocations (each converted to a total-days figure via
+ * `days_per_week * weeksBetween(start, end ?? project.end_date)` — every
  * project has a required `end_date` since v2, so an open-ended allocation
  * always has a concrete fallback bound). Floored at 0.
  */
-export async function getRemainingProjectHours(projectId: string): Promise<number> {
+export async function getRemainingProjectDays(projectId: string): Promise<number> {
   const supabase = await createClient();
 
   const { data: project, error: projectError } = await supabase
     .from("projects")
-    .select("total_working_hours, end_date")
+    .select("total_working_days, end_date")
     .eq("id", projectId)
     .single();
   if (projectError || !project) throw new Error(projectError?.message ?? "Item not found");
 
   const { data: allocations, error } = await supabase
     .from("allocations")
-    .select("hours_per_week, start_date, end_date")
+    .select("days_per_week, start_date, end_date")
     .eq("project_id", projectId)
     .eq("approval_status", "approved");
   if (error) throw new Error(error.message);
 
   const committed = (allocations ?? []).reduce(
-    (sum, a) => sum + a.hours_per_week * weeksBetween(a.start_date, a.end_date ?? project.end_date!),
+    (sum, a) => sum + a.days_per_week * weeksBetween(a.start_date, a.end_date ?? project.end_date!),
     0,
   );
 
-  return Math.max(0, project.total_working_hours - committed);
+  return Math.max(0, project.total_working_days - committed);
 }
 
 /**
  * A QA's weekly capacity minus their *approved* allocations' day-prorated
- * hours within [startDate, endDate], averaged back over the weeks in that
+ * load within [startDate, endDate], averaged back over the weeks in that
  * range. Scoping to the candidate assignment's own date range (rather than
  * some unrelated fixed week) is what makes this accurate for multi-week
  * items. Floored at 0.
@@ -366,22 +367,22 @@ export async function getRemainingUserCapacity(
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("capacity_hours")
+    .select("capacity_days")
     .eq("id", userId)
     .single();
   if (profileError || !profile) throw new Error(profileError?.message ?? "Resource not found");
 
   const { data: allocations, error } = await supabase
     .from("allocations")
-    .select("user_id, project_id, hours_per_week, start_date, end_date")
+    .select("user_id, project_id, days_per_week, start_date, end_date")
     .eq("user_id", userId)
     .eq("approval_status", "approved");
   if (error) throw new Error(error.message);
 
-  const allocatedInRange = monthlyHoursForUser(allocations ?? [], userId, { start: startDate, end: endDate });
+  const allocatedInRange = monthlyDaysForUser(allocations ?? [], userId, { start: startDate, end: endDate });
   const weeks = weeksBetween(startDate, endDate);
 
-  return Math.max(0, profile.capacity_hours - allocatedInRange / weeks);
+  return Math.max(0, profile.capacity_days - allocatedInRange / weeks);
 }
 
 export async function getAllocationsForProject(projectId: string): Promise<Allocation[]> {

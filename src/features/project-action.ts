@@ -49,7 +49,7 @@ export async function createProject(input: unknown): Promise<{ success: true }> 
     product_id: parsed.data.product_id,
     status: parsed.data.status,
     progress_percent: parsed.data.status === "completed" ? 100 : parsed.data.progress_percent,
-    total_working_hours: parsed.data.total_working_hours,
+    total_working_days: parsed.data.total_working_days,
     priority: parsed.data.priority,
     jira_link: parsed.data.jira_link,
     jiva_link: parsed.data.jiva_link,
@@ -91,7 +91,7 @@ async function releaseAllocationsForCompletedProject(admin: AdminClient, project
     if (allocation.proposed_start_date !== null) {
       updates.proposed_start_date = null;
       updates.proposed_end_date = null;
-      updates.proposed_hours_per_week = null;
+      updates.proposed_days_per_week = null;
       updates.proposed_priority = null;
       updates.change_proposed_by = null;
       updates.change_requested_at = null;
@@ -133,7 +133,7 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
       product_id: parsed.data.product_id,
       status: parsed.data.status,
       progress_percent: becomingCompleted ? 100 : parsed.data.progress_percent,
-      total_working_hours: parsed.data.total_working_hours,
+      total_working_days: parsed.data.total_working_days,
       priority: parsed.data.priority,
       jira_link: parsed.data.jira_link,
       jiva_link: parsed.data.jiva_link,
@@ -178,7 +178,7 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
       product_id: parsed.data.project.product_id,
       status: parsed.data.project.status,
       progress_percent: parsed.data.project.progress_percent,
-      total_working_hours: parsed.data.project.total_working_hours ?? 0,
+      total_working_days: parsed.data.project.total_working_days ?? 0,
       priority: parsed.data.project.priority,
       jira_link: parsed.data.project.jira_link,
       jiva_link: parsed.data.project.jiva_link,
@@ -197,7 +197,7 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
       user_id: allocation.user_id,
       project_id: project.id,
       role_on_project: allocation.role_on_project,
-      hours_per_week: allocation.hours_per_week,
+      days_per_week: allocation.days_per_week,
       start_date: allocation.start_date,
       end_date: allocation.end_date ?? null,
       approval_status: "pending",

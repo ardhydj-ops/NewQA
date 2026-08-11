@@ -4,10 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import {
   isoWeekRange,
   monthRange,
-  weeklyHoursForUser,
+  weeklyDaysForUser,
   weeklyLoadPercent,
-  monthlyHoursForUser as rangeHoursForUser,
-  monthlyHoursForProject as rangeHoursForProject,
+  monthlyDaysForUser as rangeDaysForUser,
+  monthlyDaysForProject as rangeDaysForProject,
   weeksBetween,
   type AllocationForCalc,
   type DateRange,
@@ -32,7 +32,7 @@ async function getApprovedAllocationsInRange(start: string, end: string): Promis
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("allocations")
-    .select("user_id, project_id, hours_per_week, start_date, end_date")
+    .select("user_id, project_id, days_per_week, start_date, end_date")
     .eq("approval_status", "approved")
     .lte("start_date", end)
     .or(`end_date.is.null,end_date.gte.${start}`);
@@ -50,7 +50,7 @@ async function getProjectsByIds(ids: string[]): Promise<Project[]> {
 
 export type ResourceLoadRow = {
   profile: Profile;
-  allocatedHours: number;
+  allocatedDays: number;
   loadPercent: number;
 };
 
@@ -59,7 +59,7 @@ export type WeeklyDashboard = {
   totalAllocated: number;
   availableCapacity: number;
   resourceLoad: ResourceLoadRow[];
-  demandByProduct: { productId: string; hours: number }[];
+  demandByProduct: { productId: string; days: number }[];
 };
 
 export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDashboard> {
@@ -70,33 +70,33 @@ export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDa
   ]);
 
   const resourceLoad: ResourceLoadRow[] = resources.map((profile) => {
-    const allocatedHours = weeklyHoursForUser(allocations, profile.id, week);
+    const allocatedDays = weeklyDaysForUser(allocations, profile.id, week);
     return {
       profile,
-      allocatedHours,
-      loadPercent: weeklyLoadPercent(allocatedHours, profile.capacity_hours),
+      allocatedDays,
+      loadPercent: weeklyLoadPercent(allocatedDays, profile.capacity_days),
     };
   });
 
-  const totalCapacity = resources.reduce((sum, p) => sum + p.capacity_hours, 0);
-  const totalAllocated = resourceLoad.reduce((sum, r) => sum + r.allocatedHours, 0);
+  const totalCapacity = resources.reduce((sum, p) => sum + p.capacity_days, 0);
+  const totalAllocated = resourceLoad.reduce((sum, r) => sum + r.allocatedDays, 0);
 
-  const hoursByProject = new Map<string, number>();
+  const daysByProject = new Map<string, number>();
   for (const allocation of allocations) {
-    hoursByProject.set(allocation.project_id, (hoursByProject.get(allocation.project_id) ?? 0) + allocation.hours_per_week);
+    daysByProject.set(allocation.project_id, (daysByProject.get(allocation.project_id) ?? 0) + allocation.days_per_week);
   }
 
-  const projectIds = [...hoursByProject.keys()];
+  const projectIds = [...daysByProject.keys()];
   const projects = await getProjectsByIds(projectIds);
 
-  const hoursByProductId = new Map<string, number>();
+  const daysByProductId = new Map<string, number>();
   for (const project of projects) {
-    const hours = hoursByProject.get(project.id) ?? 0;
-    hoursByProductId.set(project.product_id, (hoursByProductId.get(project.product_id) ?? 0) + hours);
+    const days = daysByProject.get(project.id) ?? 0;
+    daysByProductId.set(project.product_id, (daysByProductId.get(project.product_id) ?? 0) + days);
   }
-  const demandByProduct = [...hoursByProductId.entries()]
-    .map(([productId, hours]) => ({ productId, hours }))
-    .sort((a, b) => b.hours - a.hours);
+  const demandByProduct = [...daysByProductId.entries()]
+    .map(([productId, days]) => ({ productId, days }))
+    .sort((a, b) => b.days - a.days);
 
   return {
     totalCapacity,
@@ -109,10 +109,10 @@ export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDa
 
 /**
  * Same shape as `getWeeklyDashboard`, but for an arbitrary [start, end] range
- * instead of one fixed ISO week — `allocatedHours` per QA (and `hours` per
- * product in `demandByProduct`) is the range's total prorated hours divided
- * by how many weeks the range spans, i.e. an average hrs/week figure, so the
- * existing 80%/100% load thresholds and hrs/wk-labeled UI keep meaning
+ * instead of one fixed ISO week — `allocatedDays` per QA (and `days` per
+ * product in `demandByProduct`) is the range's total prorated days divided
+ * by how many weeks the range spans, i.e. an average days/week figure, so the
+ * existing 80%/100% load thresholds and days/wk-labeled UI keep meaning
  * unchanged no matter how wide a range is picked.
  */
 export async function getRangeDashboard(startDateISO: string, endDateISO: string): Promise<WeeklyDashboard> {
@@ -128,28 +128,28 @@ export async function getRangeDashboard(startDateISO: string, endDateISO: string
   ]);
 
   const resourceLoad: ResourceLoadRow[] = resources.map((profile) => {
-    const allocatedHours = rangeHoursForUser(allocations, profile.id, range) / weeks;
+    const allocatedDays = rangeDaysForUser(allocations, profile.id, range) / weeks;
     return {
       profile,
-      allocatedHours,
-      loadPercent: weeklyLoadPercent(allocatedHours, profile.capacity_hours),
+      allocatedDays,
+      loadPercent: weeklyLoadPercent(allocatedDays, profile.capacity_days),
     };
   });
 
-  const totalCapacity = resources.reduce((sum, p) => sum + p.capacity_hours, 0);
-  const totalAllocated = resourceLoad.reduce((sum, r) => sum + r.allocatedHours, 0);
+  const totalCapacity = resources.reduce((sum, p) => sum + p.capacity_days, 0);
+  const totalAllocated = resourceLoad.reduce((sum, r) => sum + r.allocatedDays, 0);
 
   const projectIds = [...new Set(allocations.map((a) => a.project_id))];
   const projects = await getProjectsByIds(projectIds);
 
-  const hoursByProductId = new Map<string, number>();
+  const daysByProductId = new Map<string, number>();
   for (const project of projects) {
-    const hours = rangeHoursForProject(allocations, project.id, range) / weeks;
-    hoursByProductId.set(project.product_id, (hoursByProductId.get(project.product_id) ?? 0) + hours);
+    const days = rangeDaysForProject(allocations, project.id, range) / weeks;
+    daysByProductId.set(project.product_id, (daysByProductId.get(project.product_id) ?? 0) + days);
   }
-  const demandByProduct = [...hoursByProductId.entries()]
-    .map(([productId, hours]) => ({ productId, hours }))
-    .sort((a, b) => b.hours - a.hours);
+  const demandByProduct = [...daysByProductId.entries()]
+    .map(([productId, days]) => ({ productId, days }))
+    .sort((a, b) => b.days - a.days);
 
   return {
     totalCapacity,

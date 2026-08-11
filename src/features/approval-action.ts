@@ -78,7 +78,7 @@ export async function approveProjectProposal(projectId: string, input: unknown):
 
   const { error: projectError } = await admin
     .from("projects")
-    .update({ approval_status: "approved", total_working_hours: parsed.data.total_working_hours })
+    .update({ approval_status: "approved", total_working_days: parsed.data.total_working_days })
     .eq("id", projectId);
   if (projectError) throw new Error(projectError.message);
 
@@ -154,7 +154,7 @@ export async function approveAllocationChange(id: string): Promise<{ success: tr
 
   const { data: allocation, error: fetchError } = await admin
     .from("allocations")
-    .select("user_id, project_id, proposed_start_date, proposed_end_date, proposed_hours_per_week, proposed_priority")
+    .select("user_id, project_id, proposed_start_date, proposed_end_date, proposed_days_per_week, proposed_priority")
     .eq("id", id)
     .single();
   if (fetchError || !allocation || allocation.proposed_start_date === null) {
@@ -175,11 +175,11 @@ export async function approveAllocationChange(id: string): Promise<{ success: tr
     .update({
       start_date: allocation.proposed_start_date,
       end_date: allocation.proposed_end_date,
-      hours_per_week: allocation.proposed_hours_per_week,
+      days_per_week: allocation.proposed_days_per_week,
       priority: allocation.proposed_priority,
       proposed_start_date: null,
       proposed_end_date: null,
-      proposed_hours_per_week: null,
+      proposed_days_per_week: null,
       proposed_priority: null,
       change_proposed_by: null,
       change_requested_at: null,
@@ -199,7 +199,7 @@ export async function rejectAllocationChange(id: string): Promise<{ success: tru
     .update({
       proposed_start_date: null,
       proposed_end_date: null,
-      proposed_hours_per_week: null,
+      proposed_days_per_week: null,
       proposed_priority: null,
       change_proposed_by: null,
       change_requested_at: null,

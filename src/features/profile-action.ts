@@ -64,7 +64,7 @@ export async function createProfile(
       email: parsed.data.email,
       role: parsed.data.role,
       qa_group_id: parsed.data.qa_group_id ?? null,
-      capacity_hours: parsed.data.capacity_hours,
+      capacity_days: parsed.data.capacity_days,
     })
     .select("*")
     .single();
@@ -92,7 +92,7 @@ export async function updateProfile(id: string, input: unknown): Promise<{ succe
       name: parsed.data.name,
       role: parsed.data.role,
       qa_group_id: parsed.data.qa_group_id ?? null,
-      capacity_hours: parsed.data.capacity_hours,
+      capacity_days: parsed.data.capacity_days,
     })
     .eq("id", id);
 
