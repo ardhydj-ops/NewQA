@@ -58,12 +58,6 @@ type ProjectSummaryCardsProps = {
 export function ProjectSummaryCards({ rows, assignmentCounts, productNameById }: ProjectSummaryCardsProps) {
   const totalProjects = rows.length;
   const withoutQa = rows.filter((p) => (assignmentCounts[p.id] ?? 0) === 0).length;
-  const withQa = totalProjects - withoutQa;
-
-  const qaSlices: Slice[] = [
-    ...(withQa > 0 ? [{ id: "with-qa", name: "Assigned", value: withQa, color: "#16a34a" }] : []),
-    ...(withoutQa > 0 ? [{ id: "without-qa", name: "Without QA", value: withoutQa, color: "#dc2626" }] : []),
-  ];
 
   const progressSlices: Slice[] = PROGRESS_BUCKETS.map((bucket) => ({
     id: bucket.label,
@@ -97,21 +91,22 @@ export function ProjectSummaryCards({ rows, assignmentCounts, productNameById }:
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="space-y-1 pt-6">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Total Projects</p>
-          <p className="text-3xl font-bold tabular-nums">{totalProjects}</p>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Card>
-          <CardContent className="space-y-3 pt-6">
-            <h2 className="text-sm font-semibold">Without QA Assignment</h2>
-            <SummaryPieChart data={qaSlices} emptyMessage="No items yet." />
+          <CardContent className="space-y-1 pt-6">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Total Projects</p>
+            <p className="text-3xl font-bold tabular-nums">{totalProjects}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="space-y-1 pt-6">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Without QA Assignment</p>
+            <p className="text-3xl font-bold tabular-nums">{withoutQa}</p>
+          </CardContent>
+        </Card>
+      </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardContent className="space-y-3 pt-6">
             <h2 className="text-sm font-semibold">Progress Summary</h2>
