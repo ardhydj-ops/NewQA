@@ -4,17 +4,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { ProjectInput, ProjectProposalInput } from "@/features/project-schema";
-import type { Project, ProjectStatus, ApprovalStatus } from "@/lib/project";
+import type { Project, ProjectStatus, ApprovalStatus, ItemType, Priority } from "@/lib/project";
 
 export async function getProjects({
   status = "",
   product_id = "",
   search = "",
+  item_type = "",
+  priority = "",
   approvalStatus,
 }: {
   status?: ProjectStatus | "";
   product_id?: string;
   search?: string;
+  item_type?: ItemType | "";
+  priority?: Priority | "";
   approvalStatus?: ApprovalStatus;
 } = {}): Promise<Project[]> {
   const supabase = await createClient();
@@ -25,6 +29,8 @@ export async function getProjects({
   if (term) query = query.ilike("name", `%${term}%`);
   if (status) query = query.eq("status", status);
   if (product_id) query = query.eq("product_id", product_id);
+  if (item_type) query = query.eq("item_type", item_type);
+  if (priority) query = query.eq("priority", priority);
   if (approvalStatus) query = query.eq("approval_status", approvalStatus);
 
   const { data, error } = await query.order("start_date", { ascending: false });

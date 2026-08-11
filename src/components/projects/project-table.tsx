@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, MoreHorizontal, Pencil, Trash2, UserPlus, Undo2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ExternalLink,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  UserPlus,
+  Undo2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -65,6 +75,51 @@ const PRIORITY_BADGE_CLASS: Record<Priority, string> = {
   critical: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
+export type ProjectSortKey =
+  | "name"
+  | "assigned"
+  | "product"
+  | "progress"
+  | "start_date"
+  | "end_date"
+  | "total_days"
+  | "type"
+  | "status"
+  | "priority";
+
+type SortableHeaderProps = {
+  label: string;
+  sortKey: ProjectSortKey;
+  activeKey: ProjectSortKey;
+  direction: "asc" | "desc";
+  onSort: (key: ProjectSortKey) => void;
+  className?: string;
+};
+
+function SortableHeader({ label, sortKey, activeKey, direction, onSort, className }: SortableHeaderProps) {
+  const isActive = sortKey === activeKey;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+      >
+        {label}
+        {isActive ? (
+          direction === "asc" ? (
+            <ArrowUp className="size-3" />
+          ) : (
+            <ArrowDown className="size-3" />
+          )
+        ) : (
+          <ArrowUpDown className="size-3 text-muted-foreground/50" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
 type ProjectTableProps = {
   rows: Project[];
   isLoading: boolean;
@@ -73,6 +128,9 @@ type ProjectTableProps = {
   currentProfileId: string;
   productNameById: Map<string, string>;
   assignmentCounts: Record<string, number>;
+  sortKey: ProjectSortKey;
+  sortDirection: "asc" | "desc";
+  onSortChange: (key: ProjectSortKey) => void;
 };
 
 export function ProjectTable({
@@ -83,6 +141,9 @@ export function ProjectTable({
   currentProfileId,
   productNameById,
   assignmentCounts,
+  sortKey,
+  sortDirection,
+  onSortChange,
 }: ProjectTableProps) {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
@@ -120,16 +181,30 @@ export function ProjectTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-50 pl-6">Name</TableHead>
-              <TableHead>Assigned</TableHead>
-              <TableHead>Products</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
-              <TableHead className="text-right">Total Days</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Priority</TableHead>
+              <SortableHeader
+                label="Name"
+                sortKey="name"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={onSortChange}
+                className="w-50 pl-6"
+              />
+              <SortableHeader label="Assigned" sortKey="assigned" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
+              <SortableHeader label="Products" sortKey="product" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
+              <SortableHeader label="Progress" sortKey="progress" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
+              <SortableHeader label="Start Date" sortKey="start_date" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
+              <SortableHeader label="End Date" sortKey="end_date" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
+              <SortableHeader
+                label="Total Days"
+                sortKey="total_days"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={onSortChange}
+                className="text-right"
+              />
+              <SortableHeader label="Type" sortKey="type" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
+              <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
+              <SortableHeader label="Priority" sortKey="priority" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
               <TableHead>Link</TableHead>
               {showActions && <TableHead className="pr-6 text-right">Action</TableHead>}
             </TableRow>
