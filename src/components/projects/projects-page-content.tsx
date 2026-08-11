@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { ProjectSummaryCards } from "@/components/projects/project-summary-cards";
 import { ProjectTable } from "@/components/projects/project-table";
 import { ProposeProjectDialog } from "@/components/projects/propose-project-dialog";
 import { getApprovedAllocationCountsByProject } from "@/features/allocation-action";
@@ -75,6 +76,8 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
           </Button>
         )}
       </div>
+
+      <ProjectSummaryCards rows={allRows} assignmentCounts={assignmentCounts ?? {}} productNameById={productNameById} />
 
       <div className="flex flex-wrap items-center gap-2">
         <Input
