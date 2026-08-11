@@ -15,10 +15,11 @@ export function ProductDemandPieChart({ data, productNameById }: ProductDemandPi
 
   const slices = [
     ...top5.map((d) => ({
+      id: d.productId,
       name: productNameById.get(d.productId) ?? "—",
       hours: Math.round(d.hours * 100) / 100,
     })),
-    ...(otherHours > 0 ? [{ name: "Other", hours: Math.round(otherHours * 100) / 100 }] : []),
+    ...(otherHours > 0 ? [{ id: "other", name: "Other", hours: Math.round(otherHours * 100) / 100 }] : []),
   ];
 
   if (slices.length === 0) {
@@ -31,7 +32,7 @@ export function ProductDemandPieChart({ data, productNameById }: ProductDemandPi
         <PieChart>
           <Pie data={slices} dataKey="hours" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
             {slices.map((slice, index) => (
-              <Cell key={slice.name} fill={COLORS[index % COLORS.length]} />
+              <Cell key={slice.id} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
           <Tooltip formatter={(value) => `${value} hrs`} />
