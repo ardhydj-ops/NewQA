@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createAllocation, getRemainingProjectHours } from "@/features/allocation-action";
+import { createAllocation, getRemainingProjectHours, getRemainingUserCapacity } from "@/features/allocation-action";
 import { weeksBetween } from "@/lib/load";
 import type { Priority, Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
@@ -51,8 +51,21 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
     setEndDate(project?.end_date ?? "");
   }
 
-  const remainingCapacity = Math.max(0, capacityHours - allocatedHours);
   const validDates = startDate !== "" && endDate !== "" && endDate >= startDate;
+
+  const { data: rangeRemainingCapacity } = useQuery({
+    queryKey: ["remaining-user-capacity", userId, startDate, endDate],
+    queryFn: () => getRemainingUserCapacity(userId, startDate, endDate),
+    enabled: validDates,
+  });
+
+  // Once dates are picked, base remaining capacity on the QA's load over
+  // those specific dates rather than the page's own planning-period range —
+  // this stays correct even when the item spans multiple weeks.
+  const remainingCapacity =
+    validDates && rangeRemainingCapacity !== undefined
+      ? rangeRemainingCapacity
+      : Math.max(0, capacityHours - allocatedHours);
   const weeks = validDates ? weeksBetween(startDate, endDate) : null;
   const computedHoursPerWeek = remainingHours !== undefined && weeks !== null ? remainingHours / weeks : null;
   const overCapacity = computedHoursPerWeek !== null && computedHoursPerWeek > remainingCapacity;
@@ -76,6 +89,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
       queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations", "user", userId] });
       queryClient.invalidateQueries({ queryKey: ["remaining-project-hours", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["remaining-user-capacity", userId] });
       setProjectId("");
       setRoleOnProject("");
       setStartDate("");

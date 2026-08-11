@@ -9,7 +9,7 @@ import {
   AllocationChangeInput,
   BulkAllocationInput,
 } from "@/features/allocation-schema";
-import { overlappingProjectCount, weeksBetween } from "@/lib/load";
+import { monthlyHoursForUser, overlappingProjectCount, weeksBetween } from "@/lib/load";
 import type { Allocation } from "@/lib/allocation";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -348,6 +348,40 @@ export async function getRemainingProjectHours(projectId: string): Promise<numbe
   );
 
   return Math.max(0, project.total_working_hours - committed);
+}
+
+/**
+ * A QA's weekly capacity minus their *approved* allocations' day-prorated
+ * hours within [startDate, endDate], averaged back over the weeks in that
+ * range. Scoping to the candidate assignment's own date range (rather than
+ * some unrelated fixed week) is what makes this accurate for multi-week
+ * items. Floored at 0.
+ */
+export async function getRemainingUserCapacity(
+  userId: string,
+  startDate: string,
+  endDate: string,
+): Promise<number> {
+  const supabase = await createClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("capacity_hours")
+    .eq("id", userId)
+    .single();
+  if (profileError || !profile) throw new Error(profileError?.message ?? "Resource not found");
+
+  const { data: allocations, error } = await supabase
+    .from("allocations")
+    .select("user_id, project_id, hours_per_week, start_date, end_date")
+    .eq("user_id", userId)
+    .eq("approval_status", "approved");
+  if (error) throw new Error(error.message);
+
+  const allocatedInRange = monthlyHoursForUser(allocations ?? [], userId, { start: startDate, end: endDate });
+  const weeks = weeksBetween(startDate, endDate);
+
+  return Math.max(0, profile.capacity_hours - allocatedInRange / weeks);
 }
 
 export async function getAllocationsForProject(projectId: string): Promise<Allocation[]> {
