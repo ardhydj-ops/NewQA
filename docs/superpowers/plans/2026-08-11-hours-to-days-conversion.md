@@ -639,7 +639,8 @@ to:
 /**
  * Assigns one project/activity to several QAs at once, splitting its
  * `total_working_days` evenly (per QA, per week, over the item's own
- * date range, rounded to the nearest half-day). Each QA gets an
+ * date range, rounded to the nearest half-day and floored at 0.5 so a
+ * thin split never rounds down to a DB-rejected 0). Each QA gets an
  * independent allocation row. QA-Lead batches go live immediately
  * (per-QA, subject to the parallel-limit check); PM batches are
  * standalone `pending` proposals, same rule as the single-QA flow.
@@ -712,7 +713,9 @@ to:
   const remainingDays = Math.max(0, project.total_working_days - committed);
 
   const weeks = weeksBetween(project.start_date, project.end_date);
-  const daysPerWeek = Math.round((remainingDays / parsed.data.user_ids.length / weeks) * 2) / 2;
+  // Floored at 0.5 (not rounded down to 0) — the DB's days_per_week > 0
+  // check would otherwise reject a QA whose even share rounds to nothing.
+  const daysPerWeek = Math.max(0.5, Math.round((remainingDays / parsed.data.user_ids.length / weeks) * 2) / 2);
   const isLead = profile.role === "qa_lead";
 ```
 
