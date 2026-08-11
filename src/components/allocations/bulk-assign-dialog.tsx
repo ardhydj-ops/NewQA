@@ -26,7 +26,6 @@ import {
 import { createBulkAllocations, getRemainingProjectDays } from "@/features/allocation-action";
 import { getAssignableProfiles } from "@/features/profile-action";
 import { getProjects } from "@/features/project-action";
-import { weeksBetween } from "@/lib/load";
 import type { Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
 
@@ -63,13 +62,6 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
     enabled: projectId !== "",
   });
 
-  const previewDaysPerWeek =
-    selectedProject && selectedProject.end_date && remainingDays !== undefined && selectedUserIds.length > 0
-      ? Math.round(
-          (remainingDays / selectedUserIds.length / weeksBetween(selectedProject.start_date, selectedProject.end_date)) * 2,
-        ) / 2
-      : null;
-
   const mutation = useMutation({
     mutationFn: () =>
       createBulkAllocations({
@@ -79,11 +71,19 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
       }),
     onSuccess: (result) => {
       if (result.created.length > 0) {
-        toast.success(
-          role === "qa_lead"
-            ? `Assigned ${result.created.length} QA member(s)`
-            : `Proposed assignment for ${result.created.length} QA member(s) — pending QA Lead approval`,
-        );
+        const partiallyPlaced = result.created.filter((c) => c.unplacedDays > 0);
+        if (partiallyPlaced.length === 0) {
+          toast.success(
+            role === "qa_lead"
+              ? `Assigned ${result.created.length} QA member(s)`
+              : `Proposed assignment for ${result.created.length} QA member(s) — pending QA Lead approval`,
+          );
+        } else {
+          const names = partiallyPlaced
+            .map((c) => (testers ?? []).find((t) => t.id === c.userId)?.name ?? c.userId)
+            .join(", ");
+          toast.warning(`Assigned ${result.created.length} QA member(s), but couldn't fit all days for: ${names}`);
+        }
       }
       if (result.failed.length > 0) {
         const names = result.failed
@@ -112,9 +112,10 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{presetProject ? "Assign QA (even split)" : "Add project (even split)"}</DialogTitle>
+          <DialogTitle>{presetProject ? "Assign QA" : "Add project"}</DialogTitle>
           <DialogDescription>
-            Remaining working days are split evenly across the QA members you select.
+            Each selected QA is scheduled for the full remaining workload at their own available capacity,
+            spilling into future weeks as needed.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -169,12 +170,6 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
               ))}
             </div>
           </div>
-
-          {previewDaysPerWeek !== null && (
-            <p className="text-sm text-muted-foreground">
-              Each selected QA gets ~{previewDaysPerWeek} days/week.
-            </p>
-          )}
 
           <DialogFooter>
             <Button type="submit" disabled={!projectId || selectedUserIds.length === 0 || mutation.isPending}>
