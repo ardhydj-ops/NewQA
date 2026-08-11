@@ -8,9 +8,11 @@ import {
   AllocationInput,
   AllocationChangeInput,
   BulkAllocationInput,
+  ScheduleAllocationInput,
 } from "@/features/allocation-schema";
-import { monthlyDaysForUser, overlappingProjectCount, weeksBetween } from "@/lib/load";
+import { isoWeekRange, monthlyDaysForUser, overlappingProjectCount, weeksBetween } from "@/lib/load";
 import type { Allocation } from "@/lib/allocation";
+import type { Priority } from "@/lib/project";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -62,6 +64,106 @@ export async function assertWithinParallelLimit(
   }
 }
 
+type ScheduleResult = { weeksCreated: number; placedDays: number; unplacedDays: number };
+
+/**
+ * Places `totalDays` of work for `userId` on `projectId`, one allocation
+ * row per calendar week, starting from the Monday..Sunday week containing
+ * `startDateISO`. Each week's row is capped at that week's actual open
+ * capacity (weekly capacity minus the user's other approved allocations
+ * overlapping that week, floored to a half-day so the cap never exceeds
+ * real availability) — never blocks, just spills whatever doesn't fit into
+ * the following week. Stops once `totalDays` is placed or the walk reaches
+ * `projectEndDateISO`, whichever comes first (every project has a required
+ * `end_date`, so this loop is always bounded).
+ */
+async function scheduleWeeklyAllocations(params: {
+  admin: AdminClient;
+  userId: string;
+  projectId: string;
+  roleOnProject: string;
+  priority: Priority;
+  totalDays: number;
+  startDateISO: string;
+  projectEndDateISO: string;
+  isLead: boolean;
+  proposedBy: string | null;
+}): Promise<ScheduleResult> {
+  const {
+    admin,
+    userId,
+    projectId,
+    roleOnProject,
+    priority,
+    totalDays,
+    startDateISO,
+    projectEndDateISO,
+    isLead,
+    proposedBy,
+  } = params;
+
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("capacity_days")
+    .eq("id", userId)
+    .single();
+  if (profileError || !profile) throw new Error(profileError?.message ?? "Resource not found");
+
+  // Snapshot taken once, before the loop: every row this loop creates is
+  // scoped to its own distinct week, so none of them overlap any other
+  // week this same run schedules — the snapshot staying fixed is correct,
+  // not a staleness bug.
+  const { data: existingAllocations, error: existingError } = await admin
+    .from("allocations")
+    .select("user_id, project_id, days_per_week, start_date, end_date")
+    .eq("user_id", userId)
+    .eq("approval_status", "approved");
+  if (existingError) throw new Error(existingError.message);
+
+  if (isLead) {
+    await assertWithinParallelLimit(admin, userId, projectId, startDateISO, projectEndDateISO);
+  }
+
+  let remaining = totalDays;
+  let week = isoWeekRange(new Date(`${startDateISO}T00:00:00Z`));
+  let weeksCreated = 0;
+  let placedDays = 0;
+
+  while (remaining >= 0.5 && week.start <= projectEndDateISO) {
+    const allocatedThisWeek = monthlyDaysForUser(existingAllocations ?? [], userId, week);
+    const weekCapacity = Math.max(0, profile.capacity_days - allocatedThisWeek);
+    const thisWeekDays = Math.min(remaining, Math.floor(weekCapacity * 2) / 2);
+
+    if (thisWeekDays >= 0.5) {
+      const rowStart = week.start > startDateISO ? week.start : startDateISO;
+      const rowEnd = week.end < projectEndDateISO ? week.end : projectEndDateISO;
+
+      const { error } = await admin.from("allocations").insert({
+        user_id: userId,
+        project_id: projectId,
+        role_on_project: roleOnProject,
+        days_per_week: thisWeekDays,
+        start_date: rowStart,
+        end_date: rowEnd,
+        priority,
+        approval_status: isLead ? "approved" : "pending",
+        proposed_by: isLead ? null : proposedBy,
+      });
+      if (error) throw new Error(error.message);
+
+      weeksCreated++;
+      placedDays += thisWeekDays;
+      remaining -= thisWeekDays;
+    }
+
+    const nextMonday = new Date(`${week.start}T00:00:00Z`);
+    nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
+    week = isoWeekRange(nextMonday);
+  }
+
+  return { weeksCreated, placedDays, unplacedDays: Math.max(0, Math.round(remaining * 2) / 2) };
+}
+
 export async function getAllocationsForUser(userId: string): Promise<Allocation[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -73,52 +175,58 @@ export async function getAllocationsForUser(userId: string): Promise<Allocation[
   return (data ?? []) as Allocation[];
 }
 
-export async function createAllocation(input: unknown): Promise<{ success: true }> {
+export async function createAllocation(
+  input: unknown,
+): Promise<{ weeksCreated: number; placedDays: number; unplacedDays: number }> {
   const profile = await requireRole(["qa_lead", "project_manager"]);
 
-  const parsed = AllocationInput.safeParse(input);
+  const parsed = ScheduleAllocationInput.safeParse(input);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
   }
 
   const admin = createAdminClient();
 
-  const { data: project } = await admin
+  const { data: project, error: projectError } = await admin
     .from("projects")
-    .select("approval_status")
+    .select("approval_status, end_date, total_working_days")
     .eq("id", parsed.data.project_id)
     .single();
 
-  if (!project || project.approval_status !== "approved") {
+  if (projectError || !project || project.approval_status !== "approved") {
     throw new Error("You can only assign testers to an approved project");
   }
+  if (!project.end_date) {
+    throw new Error("This item has no end date and can't be scheduled");
+  }
+
+  const { data: existingProjectAllocations, error: existingError } = await admin
+    .from("allocations")
+    .select("days_per_week, start_date, end_date")
+    .eq("project_id", parsed.data.project_id)
+    .eq("approval_status", "approved");
+  if (existingError) throw new Error(existingError.message);
+
+  const committed = (existingProjectAllocations ?? []).reduce(
+    (sum, a) => sum + a.days_per_week * weeksBetween(a.start_date, a.end_date ?? project.end_date!),
+    0,
+  );
+  const remainingDays = Math.max(0, project.total_working_days - committed);
 
   const isLead = profile.role === "qa_lead";
 
-  if (isLead) {
-    await assertWithinParallelLimit(
-      admin,
-      parsed.data.user_id,
-      parsed.data.project_id,
-      parsed.data.start_date,
-      parsed.data.end_date ?? null,
-    );
-  }
-
-  const { error } = await admin.from("allocations").insert({
-    user_id: parsed.data.user_id,
-    project_id: parsed.data.project_id,
-    role_on_project: parsed.data.role_on_project,
-    days_per_week: parsed.data.days_per_week,
-    start_date: parsed.data.start_date,
-    end_date: parsed.data.end_date ?? null,
+  return scheduleWeeklyAllocations({
+    admin,
+    userId: parsed.data.user_id,
+    projectId: parsed.data.project_id,
+    roleOnProject: parsed.data.role_on_project,
     priority: parsed.data.priority,
-    approval_status: isLead ? "approved" : "pending",
-    proposed_by: isLead ? null : profile.id,
+    totalDays: remainingDays,
+    startDateISO: parsed.data.start_date,
+    projectEndDateISO: project.end_date,
+    isLead,
+    proposedBy: isLead ? null : profile.id,
   });
-
-  if (error) throw new Error(error.message);
-  return { success: true };
 }
 
 export async function updateAllocation(id: string, input: unknown): Promise<{ success: true }> {
@@ -233,19 +341,20 @@ export async function proposeAllocationChange(id: string, input: unknown): Promi
 }
 
 /**
- * Assigns one project/activity to several QAs at once, splitting its
- * `total_working_days` evenly (per QA, per week, over the item's own
- * date range, rounded to the nearest half-day and floored at 0.5 so a
- * thin split never rounds down to a DB-rejected 0). Each QA gets an
- * independent allocation row. QA-Lead batches go live immediately
- * (per-QA, subject to the parallel-limit check); PM batches are
- * standalone `pending` proposals, same rule as the single-QA flow.
- * Partial success is expected and reported — one QA failing the limit
- * check doesn't block the others.
+ * Assigns one project/activity to several QAs at once — NOT split: each
+ * selected QA is independently scheduled (via `scheduleWeeklyAllocations`)
+ * against the project's *full* `total_working_days` remaining total, one
+ * allocation row per week they're active, capped at their own real
+ * capacity each week and spilling into following weeks as needed. QA-Lead
+ * batches go live immediately (per-QA, subject to the parallel-limit
+ * check); PM batches are standalone `pending` proposals, same rule as the
+ * single-QA flow. Partial success is expected and reported — one QA
+ * failing the limit check doesn't block the others.
  */
-export async function createBulkAllocations(
-  input: unknown,
-): Promise<{ created: string[]; failed: { userId: string; reason: string }[] }> {
+export async function createBulkAllocations(input: unknown): Promise<{
+  created: { userId: string; weeksCreated: number; placedDays: number; unplacedDays: number }[];
+  failed: { userId: string; reason: string }[];
+}> {
   const profile = await requireRole(["qa_lead", "project_manager"]);
 
   const parsed = BulkAllocationInput.safeParse(input);
@@ -265,7 +374,7 @@ export async function createBulkAllocations(
     throw new Error("You can only assign testers to an approved project");
   }
   if (!project.end_date) {
-    throw new Error("This item has no end date and can't be evenly split");
+    throw new Error("This item has no end date and can't be scheduled");
   }
 
   const { data: existingAllocations, error: existingError } = await admin
@@ -280,42 +389,28 @@ export async function createBulkAllocations(
     0,
   );
   const remainingDays = Math.max(0, project.total_working_days - committed);
-
-  const weeks = weeksBetween(project.start_date, project.end_date);
-  // Floored at 0.5 (not rounded down to 0) — the DB's days_per_week > 0
-  // check would otherwise reject a QA whose even share rounds to nothing.
-  const daysPerWeek = Math.max(0.5, Math.round((remainingDays / parsed.data.user_ids.length / weeks) * 2) / 2);
   const isLead = profile.role === "qa_lead";
 
-  const created: string[] = [];
+  const created: { userId: string; weeksCreated: number; placedDays: number; unplacedDays: number }[] = [];
   const failed: { userId: string; reason: string }[] = [];
 
   for (const userId of parsed.data.user_ids) {
-    if (isLead) {
-      try {
-        await assertWithinParallelLimit(admin, userId, parsed.data.project_id, project.start_date, project.end_date);
-      } catch (limitError) {
-        failed.push({ userId, reason: (limitError as Error).message });
-        continue;
-      }
-    }
-
-    const { error } = await admin.from("allocations").insert({
-      user_id: userId,
-      project_id: parsed.data.project_id,
-      role_on_project: parsed.data.role_on_project,
-      days_per_week: daysPerWeek,
-      start_date: project.start_date,
-      end_date: project.end_date,
-      priority: "medium",
-      approval_status: isLead ? "approved" : "pending",
-      proposed_by: isLead ? null : profile.id,
-    });
-
-    if (error) {
-      failed.push({ userId, reason: error.message });
-    } else {
-      created.push(userId);
+    try {
+      const result = await scheduleWeeklyAllocations({
+        admin,
+        userId,
+        projectId: parsed.data.project_id,
+        roleOnProject: parsed.data.role_on_project,
+        priority: "medium",
+        totalDays: remainingDays,
+        startDateISO: project.start_date,
+        projectEndDateISO: project.end_date,
+        isLead,
+        proposedBy: isLead ? null : profile.id,
+      });
+      created.push({ userId, ...result });
+    } catch (scheduleError) {
+      failed.push({ userId, reason: (scheduleError as Error).message });
     }
   }
 
