@@ -266,8 +266,21 @@ export async function createBulkAllocations(
     throw new Error("This item has no end date and can't be evenly split");
   }
 
+  const { data: existingAllocations, error: existingError } = await admin
+    .from("allocations")
+    .select("hours_per_week, start_date, end_date")
+    .eq("project_id", parsed.data.project_id)
+    .eq("approval_status", "approved");
+  if (existingError) throw new Error(existingError.message);
+
+  const committed = (existingAllocations ?? []).reduce(
+    (sum, a) => sum + a.hours_per_week * weeksBetween(a.start_date, a.end_date ?? project.end_date!),
+    0,
+  );
+  const remainingHours = Math.max(0, project.total_working_hours - committed);
+
   const weeks = weeksBetween(project.start_date, project.end_date);
-  const hoursPerWeek = project.total_working_hours / parsed.data.user_ids.length / weeks;
+  const hoursPerWeek = remainingHours / parsed.data.user_ids.length / weeks;
   const isLead = profile.role === "qa_lead";
 
   const created: string[] = [];
@@ -303,6 +316,38 @@ export async function createBulkAllocations(
   }
 
   return { created, failed };
+}
+
+/**
+ * `total_working_hours` minus what's already committed to this project by
+ * its own *approved* allocations (each converted to a total-hours figure via
+ * `hours_per_week * weeksBetween(start, end ?? project.end_date)` — every
+ * project has a required `end_date` since v2, so an open-ended allocation
+ * always has a concrete fallback bound). Floored at 0.
+ */
+export async function getRemainingProjectHours(projectId: string): Promise<number> {
+  const supabase = await createClient();
+
+  const { data: project, error: projectError } = await supabase
+    .from("projects")
+    .select("total_working_hours, end_date")
+    .eq("id", projectId)
+    .single();
+  if (projectError || !project) throw new Error(projectError?.message ?? "Item not found");
+
+  const { data: allocations, error } = await supabase
+    .from("allocations")
+    .select("hours_per_week, start_date, end_date")
+    .eq("project_id", projectId)
+    .eq("approval_status", "approved");
+  if (error) throw new Error(error.message);
+
+  const committed = (allocations ?? []).reduce(
+    (sum, a) => sum + a.hours_per_week * weeksBetween(a.start_date, a.end_date ?? project.end_date!),
+    0,
+  );
+
+  return Math.max(0, project.total_working_hours - committed);
 }
 
 export async function getAllocationsForProject(projectId: string): Promise<Allocation[]> {
