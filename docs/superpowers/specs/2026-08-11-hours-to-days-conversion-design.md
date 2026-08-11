@@ -80,8 +80,9 @@ Half-day granularity, applied consistently everywhere a day value appears:
 (unit-agnostic division/proration) — only names and the doc comments above
 them change. `weeklyLoadPercent`'s parameters are renamed
 (`allocatedDays`/`capacityDays`) but its body (`(allocated / capacity) *
-100`) is untouched. `weeksBetween`/`weekdaysBetween`/`overlapDays` are
-already day-based and need no changes.
+100`) is untouched. `weeksBetween`/`overlapDays` are already day-based and
+need no changes. `weekdaysBetween` is removed (see the auto-fill formula
+below) and a new `monthsBetween` helper is added alongside it.
 
 **Schemas** (`profile-schema.ts`, `project-schema.ts`,
 `allocation-schema.ts`): field renames plus the `.multipleOf(0.5, ...)`
@@ -94,10 +95,30 @@ addition described in §2.
 value is now days, but "capacity" was never hours-specific in the name).
 `WeeklyDashboard.demandByProduct: { hours }`→`{ days }`.
 
-**The two hardcoded ×8 conversions go away.** `project-form-dialog.tsx` and
-`project-proposal-card.tsx` currently auto-fill Total Working *Hours* via
-`weekdaysBetween(start, end) * 8`. Auto-filling Total Working *Days* is just
-`weekdaysBetween(start, end)` — no multiplier.
+**The Total Working Days auto-fill switches from a weekday count to a
+month-based estimate.** Today, `project-form-dialog.tsx` and
+`project-proposal-card.tsx` auto-fill Total Working *Hours* via
+`weekdaysBetween(start, end) * 8` (exact Mon–Fri count × 8). Going forward,
+Total Working *Days* is estimated from the number of months the project
+spans, at a standard 22 working days/month:
+
+```ts
+/** Months spanned by [startDate, endDate], as a fraction; always at least 1
+ *  (mirrors weeksBetween's day/7 pattern, but day/30). */
+export function monthsBetween(startDate: string, endDate: string): number {
+  const days = Math.round((toUTCDate(endDate).getTime() - toUTCDate(startDate).getTime()) / MS_PER_DAY) + 1;
+  return Math.max(1, days / 30);
+}
+```
+
+Auto-fill becomes `Math.round(monthsBetween(startDate, endDate) * 22 * 2) /
+2` (rounded to the nearest half-day per §2). Example: Aug 20–Sep 10 (22 days)
+→ 22/30 ≈ 0.73 months → 0.73 × 22 ≈ 16.13 → rounds to 16.0 days. A project
+spanning under a month still gets at least 1 month's worth (22 days),
+matching how `weeksBetween` already guarantees at least 1 week.
+
+`weekdaysBetween` becomes dead code once these are its only two callers, and
+is removed from `src/lib/load.ts` as part of this work.
 
 ## 4. Frontend scope
 
