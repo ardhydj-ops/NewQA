@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ProjectProposalCard } from "@/components/approvals/project-proposal-card";
 import {
   approveAllocation,
   approveAllocationChange,
@@ -61,7 +61,8 @@ export function ApprovalsPageContent() {
   }
 
   const approveProjectMutation = useMutation({
-    mutationFn: approveProjectProposal,
+    mutationFn: ({ id, totalWorkingHours }: { id: string; totalWorkingHours: number }) =>
+      approveProjectProposal(id, { total_working_hours: totalWorkingHours }),
     onSuccess: () => {
       toast.success("Project approved");
       invalidateAll();
@@ -134,60 +135,17 @@ export function ApprovalsPageContent() {
             <p className="text-sm text-muted-foreground">No pending project proposals.</p>
           ) : (
             proposals.map((proposal) => (
-              <div key={proposal.id} className="rounded-md border p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{proposal.name}</span>
-                      <Badge variant="secondary">{productNameById.get(proposal.product_id) ?? "—"}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(proposal.start_date)} – {proposal.end_date ? formatDate(proposal.end_date) : "Ongoing"}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={rejectProjectMutation.isPending}
-                      onClick={() => rejectProjectMutation.mutate(proposal.id)}
-                    >
-                      <X className="size-4" />
-                      Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={approveProjectMutation.isPending}
-                      onClick={() => approveProjectMutation.mutate(proposal.id)}
-                    >
-                      <Check className="size-4" />
-                      Approve
-                    </Button>
-                  </div>
-                </div>
-
-                <Table className="mt-4">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Role</TableHead>
-                      <TableHead className="text-right">Hours/Wk</TableHead>
-                      <TableHead>Timeline</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {proposal.allocations.map((allocation) => (
-                      <TableRow key={allocation.id}>
-                        <TableCell>{allocation.role_on_project}</TableCell>
-                        <TableCell className="text-right tabular-nums">{allocation.hours_per_week}</TableCell>
-                        <TableCell>
-                          {formatDate(allocation.start_date)} –{" "}
-                          {allocation.end_date ? formatDate(allocation.end_date) : "Ongoing"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <ProjectProposalCard
+                key={proposal.id}
+                proposal={proposal}
+                productName={productNameById.get(proposal.product_id) ?? "—"}
+                onApprove={(totalWorkingHours) =>
+                  approveProjectMutation.mutate({ id: proposal.id, totalWorkingHours })
+                }
+                onReject={() => rejectProjectMutation.mutate(proposal.id)}
+                approving={approveProjectMutation.isPending}
+                rejecting={rejectProjectMutation.isPending}
+              />
             ))
           )}
         </CardContent>

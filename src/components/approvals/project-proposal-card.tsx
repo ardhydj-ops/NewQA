@@ -1,0 +1,96 @@
+"use client";
+
+import { useState } from "react";
+import { Check, X } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { PendingProjectProposal } from "@/features/approval-action";
+import { formatDate } from "@/lib/format";
+
+type ProjectProposalCardProps = {
+  proposal: PendingProjectProposal;
+  productName: string;
+  onApprove: (totalWorkingHours: number) => void;
+  onReject: () => void;
+  approving: boolean;
+  rejecting: boolean;
+};
+
+export function ProjectProposalCard({
+  proposal,
+  productName,
+  onApprove,
+  onReject,
+  approving,
+  rejecting,
+}: ProjectProposalCardProps) {
+  const [hours, setHours] = useState("");
+  const parsedHours = Number(hours);
+  const canApprove = hours.trim() !== "" && parsedHours > 0;
+
+  return (
+    <div className="rounded-md border p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{proposal.name}</span>
+            <Badge variant="secondary">{productName}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {formatDate(proposal.start_date)} – {proposal.end_date ? formatDate(proposal.end_date) : "Ongoing"}
+          </p>
+        </div>
+        <div className="flex items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor={`hours-${proposal.id}`} className="text-xs text-muted-foreground">
+              Total Working Hours
+            </Label>
+            <Input
+              id={`hours-${proposal.id}`}
+              type="number"
+              min={1}
+              step={1}
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+              className="w-28"
+            />
+          </div>
+          <Button size="sm" variant="outline" disabled={rejecting} onClick={onReject}>
+            <X className="size-4" />
+            Reject
+          </Button>
+          <Button size="sm" disabled={!canApprove || approving} onClick={() => onApprove(parsedHours)}>
+            <Check className="size-4" />
+            Approve
+          </Button>
+        </div>
+      </div>
+
+      <Table className="mt-4">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Role</TableHead>
+            <TableHead className="text-right">Hours/Wk</TableHead>
+            <TableHead>Timeline</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {proposal.allocations.map((allocation) => (
+            <TableRow key={allocation.id}>
+              <TableCell>{allocation.role_on_project}</TableCell>
+              <TableCell className="text-right tabular-nums">{allocation.hours_per_week}</TableCell>
+              <TableCell>
+                {formatDate(allocation.start_date)} –{" "}
+                {allocation.end_date ? formatDate(allocation.end_date) : "Ongoing"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
