@@ -1,7 +1,11 @@
 "use client";
 
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+
 import { Card, CardContent } from "@/components/ui/card";
 import type { Project, ProjectStatus } from "@/lib/project";
+
+const COLORS = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#0891b2"];
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   to_do: "To Do",
@@ -21,6 +25,30 @@ const PROGRESS_BUCKETS = [
   { label: "75–100%", min: 75, max: 100 },
 ];
 
+type Slice = { id: string; name: string; value: number; color?: string };
+
+function SummaryPieChart({ data, emptyMessage }: { data: Slice[]; emptyMessage: string }) {
+  if (data.length === 0) {
+    return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+  }
+
+  return (
+    <div className="h-56 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}>
+            {data.map((slice, index) => (
+              <Cell key={slice.id} fill={slice.color ?? COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 type ProjectSummaryCardsProps = {
   rows: Project[];
   assignmentCounts: Record<string, number>;
@@ -30,21 +58,28 @@ type ProjectSummaryCardsProps = {
 export function ProjectSummaryCards({ rows, assignmentCounts, productNameById }: ProjectSummaryCardsProps) {
   const totalProjects = rows.length;
   const withoutQa = rows.filter((p) => (assignmentCounts[p.id] ?? 0) === 0).length;
+  const withQa = totalProjects - withoutQa;
 
-  const progressCounts = PROGRESS_BUCKETS.map((bucket) => ({
-    ...bucket,
-    count: rows.filter((p) =>
+  const qaSlices: Slice[] = [
+    ...(withQa > 0 ? [{ id: "with-qa", name: "Assigned", value: withQa, color: "#16a34a" }] : []),
+    ...(withoutQa > 0 ? [{ id: "without-qa", name: "Without QA", value: withoutQa, color: "#dc2626" }] : []),
+  ];
+
+  const progressSlices: Slice[] = PROGRESS_BUCKETS.map((bucket) => ({
+    id: bucket.label,
+    name: bucket.label,
+    value: rows.filter((p) =>
       bucket.max === 100
         ? p.progress_percent >= bucket.min && p.progress_percent <= bucket.max
         : p.progress_percent >= bucket.min && p.progress_percent < bucket.max,
     ).length,
-  }));
+  })).filter((slice) => slice.value > 0);
 
-  const statusCounts = STATUS_ORDER.map((status) => ({
-    status,
-    label: STATUS_LABEL[status],
-    count: rows.filter((p) => p.status === status).length,
-  }));
+  const statusSlices: Slice[] = STATUS_ORDER.map((status) => ({
+    id: status,
+    name: STATUS_LABEL[status],
+    value: rows.filter((p) => p.status === status).length,
+  })).filter((slice) => slice.value > 0);
 
   const productCounts = new Map<string, number>();
   for (const project of rows) {
@@ -53,68 +88,48 @@ export function ProjectSummaryCards({ rows, assignmentCounts, productNameById }:
   const productCountRows = [...productCounts.entries()]
     .map(([productId, count]) => ({ productId, name: productNameById.get(productId) ?? "—", count }))
     .sort((a, b) => b.count - a.count);
+  const topProducts = productCountRows.slice(0, 5);
+  const otherProductCount = productCountRows.slice(5).reduce((sum, p) => sum + p.count, 0);
+  const productSlices: Slice[] = [
+    ...topProducts.map((p) => ({ id: p.productId, name: p.name, value: p.count })),
+    ...(otherProductCount > 0 ? [{ id: "other", name: "Other", value: otherProductCount }] : []),
+  ];
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardContent className="space-y-1 pt-6">
-            <p className="text-xs font-medium uppercase text-muted-foreground">Total Projects</p>
-            <p className="text-3xl font-bold tabular-nums">{totalProjects}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="space-y-1 pt-6">
-            <p className="text-xs font-medium uppercase text-muted-foreground">Without QA Assignment</p>
-            <p className="text-3xl font-bold tabular-nums">{withoutQa}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="space-y-1 pt-6">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Total Projects</p>
+          <p className="text-3xl font-bold tabular-nums">{totalProjects}</p>
+        </CardContent>
+      </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <h2 className="text-sm font-semibold">Without QA Assignment</h2>
+            <SummaryPieChart data={qaSlices} emptyMessage="No items yet." />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent className="space-y-3 pt-6">
             <h2 className="text-sm font-semibold">Progress Summary</h2>
-            <div className="space-y-2">
-              {progressCounts.map((bucket) => (
-                <div key={bucket.label} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{bucket.label}</span>
-                  <span className="font-medium tabular-nums">{bucket.count}</span>
-                </div>
-              ))}
-            </div>
+            <SummaryPieChart data={progressSlices} emptyMessage="No items yet." />
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="space-y-3 pt-6">
             <h2 className="text-sm font-semibold">By Status</h2>
-            <div className="space-y-2">
-              {statusCounts.map((s) => (
-                <div key={s.status} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{s.label}</span>
-                  <span className="font-medium tabular-nums">{s.count}</span>
-                </div>
-              ))}
-            </div>
+            <SummaryPieChart data={statusSlices} emptyMessage="No items yet." />
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="space-y-3 pt-6">
             <h2 className="text-sm font-semibold">By Product</h2>
-            <div className="space-y-2">
-              {productCountRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No items yet.</p>
-              ) : (
-                productCountRows.map((p) => (
-                  <div key={p.productId} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="truncate text-muted-foreground">{p.name}</span>
-                    <span className="font-medium tabular-nums">{p.count}</span>
-                  </div>
-                ))
-              )}
-            </div>
+            <SummaryPieChart data={productSlices} emptyMessage="No items yet." />
           </CardContent>
         </Card>
       </div>
