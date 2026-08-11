@@ -51,6 +51,8 @@ export async function createProject(input: unknown): Promise<{ success: true }> 
     progress_percent: parsed.data.status === "completed" ? 100 : parsed.data.progress_percent,
     total_working_hours: parsed.data.total_working_hours,
     priority: parsed.data.priority,
+    jira_link: parsed.data.jira_link,
+    jiva_link: parsed.data.jiva_link,
     approval_status: "approved",
   });
 
@@ -133,6 +135,8 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
       progress_percent: becomingCompleted ? 100 : parsed.data.progress_percent,
       total_working_hours: parsed.data.total_working_hours,
       priority: parsed.data.priority,
+      jira_link: parsed.data.jira_link,
+      jiva_link: parsed.data.jiva_link,
     })
     .eq("id", id);
 
@@ -174,8 +178,10 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
       product_id: parsed.data.project.product_id,
       status: parsed.data.project.status,
       progress_percent: parsed.data.project.progress_percent,
-      total_working_hours: parsed.data.project.total_working_hours,
+      total_working_hours: parsed.data.project.total_working_hours ?? 0,
       priority: parsed.data.project.priority,
+      jira_link: parsed.data.project.jira_link,
+      jiva_link: parsed.data.project.jiva_link,
       approval_status: "pending",
       proposed_by: profile.id,
     })
