@@ -388,6 +388,29 @@ export async function getRemainingUserCapacity(
   return Math.max(0, profile.capacity_days - allocatedInRange / weeks);
 }
 
+/** Distinct names of QAs already *approved* on this project, for display when picking a target project. */
+export async function getAssignedQaNames(projectId: string): Promise<string[]> {
+  const supabase = await createClient();
+
+  const { data: allocations, error } = await supabase
+    .from("allocations")
+    .select("user_id")
+    .eq("project_id", projectId)
+    .eq("approval_status", "approved");
+  if (error) throw new Error(error.message);
+
+  const userIds = [...new Set((allocations ?? []).map((a) => a.user_id))];
+  if (userIds.length === 0) return [];
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("name")
+    .in("id", userIds);
+  if (profilesError) throw new Error(profilesError.message);
+
+  return (profiles ?? []).map((p) => p.name);
+}
+
 export async function getAllocationsForProject(projectId: string): Promise<Allocation[]> {
   const supabase = await createClient();
   const { data, error } = await supabase

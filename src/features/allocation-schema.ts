@@ -33,3 +33,12 @@ export const BulkAllocationInput = z.object({
   role_on_project: z.string().trim().min(1, "Role on project is required"),
 });
 export type BulkAllocationInput = z.infer<typeof BulkAllocationInput>;
+
+export const ScheduleAllocationInput = z.object({
+  user_id: z.string().uuid("Select a tester"),
+  project_id: z.string().uuid("Select a project"),
+  role_on_project: z.string().trim().min(1, "Role on project is required"),
+  start_date: isoDate,
+  priority: z.enum(["low", "medium", "high", "critical"]),
+});
+export type ScheduleAllocationInput = z.infer<typeof ScheduleAllocationInput>;
