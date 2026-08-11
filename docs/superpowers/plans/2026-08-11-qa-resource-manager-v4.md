@@ -1081,7 +1081,7 @@ export function ProductDemandPieChart({ data, productNameById }: ProductDemandPi
               <Cell key={slice.name} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(value: number) => `${value} hrs`} />
+          <Tooltip formatter={(value) => `${value} hrs`} />
           <Legend />
         </PieChart>
       </ResponsiveContainer>
