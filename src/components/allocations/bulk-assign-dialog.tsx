@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createBulkAllocations, getRemainingProjectHours } from "@/features/allocation-action";
+import { createBulkAllocations, getRemainingProjectDays } from "@/features/allocation-action";
 import { getAssignableProfiles } from "@/features/profile-action";
 import { getProjects } from "@/features/project-action";
 import { weeksBetween } from "@/lib/load";
@@ -53,15 +53,17 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
 
   const selectedProject = (projects ?? []).find((p) => p.id === projectId) ?? null;
 
-  const { data: remainingHours } = useQuery({
-    queryKey: ["remaining-project-hours", projectId],
-    queryFn: () => getRemainingProjectHours(projectId),
+  const { data: remainingDays } = useQuery({
+    queryKey: ["remaining-project-days", projectId],
+    queryFn: () => getRemainingProjectDays(projectId),
     enabled: projectId !== "",
   });
 
-  const previewHoursPerWeek =
-    selectedProject && selectedProject.end_date && remainingHours !== undefined && selectedUserIds.length > 0
-      ? remainingHours / selectedUserIds.length / weeksBetween(selectedProject.start_date, selectedProject.end_date)
+  const previewDaysPerWeek =
+    selectedProject && selectedProject.end_date && remainingDays !== undefined && selectedUserIds.length > 0
+      ? Math.round(
+          (remainingDays / selectedUserIds.length / weeksBetween(selectedProject.start_date, selectedProject.end_date)) * 2,
+        ) / 2
       : null;
 
   const mutation = useMutation({
@@ -88,7 +90,7 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations"] });
-      queryClient.invalidateQueries({ queryKey: ["remaining-project-hours", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["remaining-project-days", projectId] });
       setProjectId("");
       setRoleOnProject("");
       setSelectedUserIds([]);
@@ -107,7 +109,7 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
         <DialogHeader>
           <DialogTitle>Add project (even split)</DialogTitle>
           <DialogDescription>
-            Remaining working hours are split evenly across the QA members you select.
+            Remaining working days are split evenly across the QA members you select.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -133,8 +135,8 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
             </Select>
             {selectedProject && (
               <p className="text-xs text-muted-foreground">
-                Remaining hours for this item:{" "}
-                {remainingHours !== undefined ? `${Math.round(remainingHours * 10) / 10} hrs` : "..."}
+                Remaining days for this item:{" "}
+                {remainingDays !== undefined ? `${Math.round(remainingDays * 2) / 2} days` : "..."}
               </p>
             )}
           </div>
@@ -159,9 +161,9 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
             </div>
           </div>
 
-          {previewHoursPerWeek !== null && (
+          {previewDaysPerWeek !== null && (
             <p className="text-sm text-muted-foreground">
-              Each selected QA gets ~{previewHoursPerWeek.toFixed(1)} hrs/week.
+              Each selected QA gets ~{previewDaysPerWeek.toFixed(1)} days/week.
             </p>
           )}
 

@@ -87,7 +87,7 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">{r.profile.name}</span>
           <span className="text-xs text-muted-foreground">
-            {Math.round(r.allocatedHours * 10) / 10}/{r.profile.capacity_hours} hrs
+            {Math.round(r.allocatedDays * 2) / 2}/{r.profile.capacity_days} days
           </span>
         </div>
         <LoadBar percent={r.loadPercent} className="mt-2" />
@@ -179,15 +179,15 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
               <AllocationForm
                 userId={selected.profile.id}
                 userName={selected.profile.name}
-                capacityHours={selected.profile.capacity_hours}
-                allocatedHours={selected.allocatedHours}
+                capacityDays={selected.profile.capacity_days}
+                allocatedDays={selected.allocatedDays}
                 projects={approvedProjects}
                 role={role}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                {selected.profile.name} — {Math.round(selected.allocatedHours * 10) / 10}/
-                {selected.profile.capacity_hours} hrs avg/week.
+                {selected.profile.name} — {Math.round(selected.allocatedDays * 2) / 2}/
+                {selected.profile.capacity_days} days avg/week.
               </p>
             )}
           </CardContent>

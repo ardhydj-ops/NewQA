@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createAllocation, getRemainingProjectHours, getRemainingUserCapacity } from "@/features/allocation-action";
+import { createAllocation, getRemainingProjectDays, getRemainingUserCapacity } from "@/features/allocation-action";
 import { weeksBetween } from "@/lib/load";
 import { cn } from "@/lib/utils";
 import type { Priority, Project } from "@/lib/project";
@@ -26,13 +26,13 @@ import type { ProfileRole } from "@/lib/profile";
 type AllocationFormProps = {
   userId: string;
   userName: string;
-  capacityHours: number;
-  allocatedHours: number;
+  capacityDays: number;
+  allocatedDays: number;
   projects: Project[];
   role: ProfileRole;
 };
 
-export function AllocationForm({ userId, userName, capacityHours, allocatedHours, projects, role }: AllocationFormProps) {
+export function AllocationForm({ userId, userName, capacityDays, allocatedDays, projects, role }: AllocationFormProps) {
   const [projectId, setProjectId] = useState("");
   const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
   const [roleOnProject, setRoleOnProject] = useState("");
@@ -43,9 +43,9 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
 
   const selectedProject = projects.find((p) => p.id === projectId) ?? null;
 
-  const { data: remainingHours } = useQuery({
-    queryKey: ["remaining-project-hours", projectId],
-    queryFn: () => getRemainingProjectHours(projectId),
+  const { data: remainingDays } = useQuery({
+    queryKey: ["remaining-project-days", projectId],
+    queryFn: () => getRemainingProjectDays(projectId),
     enabled: projectId !== "",
   });
 
@@ -70,12 +70,13 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
   const remainingCapacity =
     validDates && rangeRemainingCapacity !== undefined
       ? rangeRemainingCapacity
-      : Math.max(0, capacityHours - allocatedHours);
+      : Math.max(0, capacityDays - allocatedDays);
   const weeks = validDates ? weeksBetween(startDate, endDate) : null;
-  const computedHoursPerWeek = remainingHours !== undefined && weeks !== null ? remainingHours / weeks : null;
-  const overCapacity = computedHoursPerWeek !== null && computedHoursPerWeek > remainingCapacity;
+  const computedDaysPerWeek =
+    remainingDays !== undefined && weeks !== null ? Math.round((remainingDays / weeks) * 2) / 2 : null;
+  const overCapacity = computedDaysPerWeek !== null && computedDaysPerWeek > remainingCapacity;
   const canSubmit =
-    projectId !== "" && roleOnProject.trim() !== "" && computedHoursPerWeek !== null && computedHoursPerWeek > 0 && !overCapacity;
+    projectId !== "" && roleOnProject.trim() !== "" && computedDaysPerWeek !== null && computedDaysPerWeek > 0 && !overCapacity;
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -83,7 +84,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         user_id: userId,
         project_id: projectId,
         role_on_project: roleOnProject,
-        hours_per_week: computedHoursPerWeek!,
+        days_per_week: computedDaysPerWeek!,
         start_date: startDate,
         end_date: endDate || undefined,
         priority,
@@ -93,7 +94,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations", "user", userId] });
-      queryClient.invalidateQueries({ queryKey: ["remaining-project-hours", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["remaining-project-days", projectId] });
       queryClient.invalidateQueries({ queryKey: ["remaining-user-capacity", userId] });
       setProjectId("");
       setRoleOnProject("");
@@ -119,7 +120,7 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Remaining Capacity</span>
-          <span className="font-medium">{Math.round(remainingCapacity * 10) / 10} hrs / week</span>
+          <span className="font-medium">{Math.round(remainingCapacity * 2) / 2} days / week</span>
         </div>
       </div>
 
@@ -167,8 +168,8 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         </Popover>
         {selectedProject && (
           <p className="text-xs text-muted-foreground">
-            Remaining hours for this item:{" "}
-            {remainingHours !== undefined ? `${Math.round(remainingHours * 10) / 10} hrs` : "..."}
+            Remaining days for this item:{" "}
+            {remainingDays !== undefined ? `${Math.round(remainingDays * 2) / 2} days` : "..."}
           </p>
         )}
       </div>
@@ -232,11 +233,11 @@ export function AllocationForm({ userId, userName, capacityHours, allocatedHours
         <p className="text-sm text-rose-600">End date must be on or after start date.</p>
       )}
 
-      {computedHoursPerWeek !== null && (
+      {computedDaysPerWeek !== null && (
         <p className={`text-sm ${overCapacity ? "text-rose-600" : "text-muted-foreground"}`}>
-          This will allocate ~{Math.round(computedHoursPerWeek * 10) / 10} hrs/week.
+          This will allocate ~{Math.round(computedDaysPerWeek * 2) / 2} days/week.
           {overCapacity &&
-            ` This QA only has ${Math.round(remainingCapacity * 10) / 10} hrs/week available — widen the date range or pick a different QA.`}
+            ` This QA only has ${Math.round(remainingCapacity * 2) / 2} days/week available — widen the date range or pick a different QA.`}
         </p>
       )}
 

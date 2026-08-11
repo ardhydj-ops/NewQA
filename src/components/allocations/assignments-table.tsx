@@ -75,7 +75,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
   const rows = data ?? [];
   const totalAllocated = rows
     .filter((a) => a.approval_status === "approved")
-    .reduce((sum, a) => sum + a.hours_per_week, 0);
+    .reduce((sum, a) => sum + a.days_per_week, 0);
 
   const canRebaseline = role === "qa_lead" || role === "project_manager";
 
@@ -90,7 +90,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
             <TableRow>
               <TableHead className="pl-6">Project Name</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead className="text-right">Hours/Wk</TableHead>
+              <TableHead className="text-right">Days/Wk</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Timeline</TableHead>
               <TableHead className="pr-6 text-right">Actions</TableHead>
@@ -132,7 +132,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{allocation.role_on_project}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
-                    {Math.round(allocation.hours_per_week * 10) / 10}
+                    {Math.round(allocation.days_per_week * 2) / 2}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{PRIORITY_LABEL[allocation.priority]}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -187,7 +187,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
             <TableFooter>
               <TableRow>
                 <TableCell colSpan={2} className="pl-6">Total Allocated</TableCell>
-                <TableCell className="text-right tabular-nums">{Math.round(totalAllocated * 10) / 10} hrs</TableCell>
+                <TableCell className="text-right tabular-nums">{Math.round(totalAllocated * 2) / 2} days</TableCell>
                 <TableCell colSpan={3} />
               </TableRow>
             </TableFooter>

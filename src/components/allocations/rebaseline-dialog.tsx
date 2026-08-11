@@ -37,7 +37,7 @@ type RebaselineDialogProps = {
 export function RebaselineDialog({ allocation, role, open, onOpenChange }: RebaselineDialogProps) {
   const [startDate, setStartDate] = useState(allocation.start_date);
   const [endDate, setEndDate] = useState(allocation.end_date ?? "");
-  const [hoursPerWeek, setHoursPerWeek] = useState(String(allocation.hours_per_week));
+  const [daysPerWeek, setDaysPerWeek] = useState(String(allocation.days_per_week));
   const [priority, setPriority] = useState<Priority>(allocation.priority);
   const queryClient = useQueryClient();
 
@@ -50,13 +50,13 @@ export function RebaselineDialog({ allocation, role, open, onOpenChange }: Rebas
             user_id: allocation.user_id,
             project_id: allocation.project_id,
             role_on_project: allocation.role_on_project,
-            hours_per_week: Number(hoursPerWeek),
+            days_per_week: Number(daysPerWeek),
             start_date: startDate,
             end_date: endDate || undefined,
             priority,
           })
         : proposeAllocationChange(allocation.id, {
-            hours_per_week: Number(hoursPerWeek),
+            days_per_week: Number(daysPerWeek),
             start_date: startDate,
             end_date: endDate || undefined,
             priority,
@@ -87,14 +87,14 @@ export function RebaselineDialog({ allocation, role, open, onOpenChange }: Rebas
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label htmlFor="rebaseline_hours">Allocated Hours (Weekly)</Label>
+            <Label htmlFor="rebaseline_days">Allocated Days (Weekly)</Label>
             <Input
-              id="rebaseline_hours"
+              id="rebaseline_days"
               type="number"
-              min={1}
-              step={1}
-              value={hoursPerWeek}
-              onChange={(e) => setHoursPerWeek(e.target.value)}
+              min={0.5}
+              step={0.5}
+              value={daysPerWeek}
+              onChange={(e) => setDaysPerWeek(e.target.value)}
               required
             />
           </div>
