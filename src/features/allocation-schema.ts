@@ -6,7 +6,10 @@ export const AllocationInput = z.object({
   user_id: z.string().uuid("Select a tester"),
   project_id: z.string().uuid("Select a project"),
   role_on_project: z.string().trim().min(1, "Role on project is required"),
-  hours_per_week: z.number().positive("Hours must be greater than 0"),
+  days_per_week: z
+    .number()
+    .positive("Days must be greater than 0")
+    .multipleOf(0.5, "Days must be in half-day increments"),
   start_date: isoDate,
   end_date: isoDate.optional(),
   priority: z.enum(["low", "medium", "high", "critical"]),
@@ -16,7 +19,10 @@ export type AllocationInput = z.infer<typeof AllocationInput>;
 export const AllocationChangeInput = z.object({
   start_date: isoDate,
   end_date: isoDate.optional(),
-  hours_per_week: z.number().positive("Hours must be greater than 0"),
+  days_per_week: z
+    .number()
+    .positive("Days must be greater than 0")
+    .multipleOf(0.5, "Days must be in half-day increments"),
   priority: z.enum(["low", "medium", "high", "critical"]),
 });
 export type AllocationChangeInput = z.infer<typeof AllocationChangeInput>;

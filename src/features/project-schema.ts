@@ -10,23 +10,29 @@ export const ProjectInput = z.object({
   product_id: z.string().uuid("Select a product"),
   status: z.enum(["to_do", "ready_sit", "sit", "ready_uat", "uat", "completed"]),
   progress_percent: z.number().int().min(0).max(100),
-  total_working_hours: z.number().positive("Total working hours must be greater than 0"),
+  total_working_days: z
+    .number()
+    .positive("Total working days must be greater than 0")
+    .multipleOf(0.5, "Total working days must be in half-day increments"),
   priority: z.enum(["low", "medium", "high", "critical"]),
   jira_link: z.string().trim().url("Enter a valid JIRA URL"),
   jiva_link: z.string().trim().url("Enter a valid Jiva URL"),
 });
 export type ProjectInput = z.infer<typeof ProjectInput>;
 
-// PM proposals never set Total Working Hours — the QA Lead fills it in at
+// PM proposals never set Total Working Days — the QA Lead fills it in at
 // approval time (see ApproveProjectProposalInput below). Every other field,
 // including jira_link/jiva_link, stays required on the proposal path too.
-const ProjectProposalProjectInput = ProjectInput.partial({ total_working_hours: true });
+const ProjectProposalProjectInput = ProjectInput.partial({ total_working_days: true });
 export type ProjectProposalProjectInput = z.infer<typeof ProjectProposalProjectInput>;
 
 export const ProposedAllocationInput = z.object({
   user_id: z.string().uuid("Select a tester"),
   role_on_project: z.string().trim().min(1, "Role on project is required"),
-  hours_per_week: z.number().positive("Hours must be greater than 0"),
+  days_per_week: z
+    .number()
+    .positive("Days must be greater than 0")
+    .multipleOf(0.5, "Days must be in half-day increments"),
   start_date: isoDate,
   end_date: isoDate.optional(),
 });
@@ -39,6 +45,9 @@ export const ProjectProposalInput = z.object({
 export type ProjectProposalInput = z.infer<typeof ProjectProposalInput>;
 
 export const ApproveProjectProposalInput = z.object({
-  total_working_hours: z.number().positive("Total working hours must be greater than 0"),
+  total_working_days: z
+    .number()
+    .positive("Total working days must be greater than 0")
+    .multipleOf(0.5, "Total working days must be in half-day increments"),
 });
 export type ApproveProjectProposalInput = z.infer<typeof ApproveProjectProposalInput>;

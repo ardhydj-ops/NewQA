@@ -5,7 +5,10 @@ export const ProfileInput = z.object({
   email: z.string().trim().email("Enter a valid email"),
   role: z.enum(["qa_lead", "qa_member", "project_manager"]),
   qa_group_id: z.string().uuid().optional(),
-  capacity_hours: z.number().positive("Capacity must be greater than 0"),
+  capacity_days: z
+    .number()
+    .positive("Capacity must be greater than 0")
+    .multipleOf(0.5, "Capacity must be in half-day increments"),
 });
 export type ProfileInput = z.infer<typeof ProfileInput>;
 
