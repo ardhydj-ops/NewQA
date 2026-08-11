@@ -165,7 +165,7 @@ export function ProjectTable({
             ) : (
               rows.map((project) => (
                 <TableRow key={project.id}>
-                  <TableCell className="pl-6 text-sm font-medium">
+                  <TableCell className="max-w-xs pl-6 text-sm font-medium whitespace-normal break-words">
                     {project.name}
                     {project.approval_status === "pending" && (
                       <Badge variant="outline" className="ml-2 border-amber-200 bg-amber-50 text-amber-700">
