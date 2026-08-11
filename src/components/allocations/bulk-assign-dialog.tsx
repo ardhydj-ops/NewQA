@@ -27,16 +27,19 @@ import { createBulkAllocations, getRemainingProjectDays } from "@/features/alloc
 import { getAssignableProfiles } from "@/features/profile-action";
 import { getProjects } from "@/features/project-action";
 import { weeksBetween } from "@/lib/load";
+import type { Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
 
 type BulkAssignDialogProps = {
   role: ProfileRole;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When set, the project picker is skipped and this project is used directly. */
+  presetProject?: Project;
 };
 
-export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogProps) {
-  const [projectId, setProjectId] = useState("");
+export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: BulkAssignDialogProps) {
+  const [projectId, setProjectId] = useState(presetProject?.id ?? "");
   const [roleOnProject, setRoleOnProject] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const queryClient = useQueryClient();
@@ -44,6 +47,7 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
   const { data: projects } = useQuery({
     queryKey: ["projects", { approvalStatus: "approved" }],
     queryFn: () => getProjects({ approvalStatus: "approved" }),
+    enabled: !presetProject,
   });
 
   const { data: testers } = useQuery({
@@ -51,7 +55,7 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
     queryFn: () => getAssignableProfiles(),
   });
 
-  const selectedProject = (projects ?? []).find((p) => p.id === projectId) ?? null;
+  const selectedProject = presetProject ?? (projects ?? []).find((p) => p.id === projectId) ?? null;
 
   const { data: remainingDays } = useQuery({
     queryKey: ["remaining-project-days", projectId],
@@ -91,7 +95,8 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
       queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations"] });
       queryClient.invalidateQueries({ queryKey: ["remaining-project-days", projectId] });
-      setProjectId("");
+      queryClient.invalidateQueries({ queryKey: ["allocation-counts", "approved"] });
+      setProjectId(presetProject?.id ?? "");
       setRoleOnProject("");
       setSelectedUserIds([]);
       onOpenChange(false);
@@ -107,7 +112,7 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add project (even split)</DialogTitle>
+          <DialogTitle>{presetProject ? "Assign QA (even split)" : "Add project (even split)"}</DialogTitle>
           <DialogDescription>
             Remaining working days are split evenly across the QA members you select.
           </DialogDescription>
@@ -121,18 +126,22 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
         >
           <div className="space-y-2">
             <Label htmlFor="bulk_project">Project / Activity</Label>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger id="bulk_project" className="w-full">
-                <SelectValue placeholder="Select..." />
-              </SelectTrigger>
-              <SelectContent>
-                {(projects ?? []).map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {presetProject ? (
+              <p className="text-sm font-medium">{presetProject.name}</p>
+            ) : (
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger id="bulk_project" className="w-full">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(projects ?? []).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {selectedProject && (
               <p className="text-xs text-muted-foreground">
                 Remaining days for this item:{" "}

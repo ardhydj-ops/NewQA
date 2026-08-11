@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react";
+import { ExternalLink, MoreHorizontal, Pencil, Trash2, UserPlus, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -27,6 +27,7 @@ import {
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BulkAssignDialog } from "@/components/allocations/bulk-assign-dialog";
 import { ProjectAssignmentsDialog } from "@/components/projects/project-assignments-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { deleteProject, withdrawProjectProposal } from "@/features/project-action";
@@ -86,6 +87,7 @@ export function ProjectTable({
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const [viewingProject, setViewingProject] = useState<Project | null>(null);
+  const [assigningProject, setAssigningProject] = useState<Project | null>(null);
   const queryClient = useQueryClient();
 
   const canEdit = role === "qa_lead";
@@ -118,34 +120,34 @@ export function ProjectTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-6">Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Product</TableHead>
+              <TableHead className="w-50 pl-6">Name</TableHead>
+              <TableHead>Assigned</TableHead>
+              <TableHead>Products</TableHead>
+              <TableHead>Progress</TableHead>
               <TableHead>Start Date</TableHead>
               <TableHead>End Date</TableHead>
+              <TableHead className="text-right">Total Days</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
-              <TableHead className="text-right">Total Days</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead>Assigned</TableHead>
-              <TableHead>Links</TableHead>
-              {showActions && <TableHead className="pr-6 text-right">Actions</TableHead>}
+              <TableHead>Link</TableHead>
+              {showActions && <TableHead className="pr-6 text-right">Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell className="pl-6"><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell className="pl-6"><Skeleton className="h-4 w-50" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="ml-auto h-4 w-10" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="ml-auto h-4 w-10" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                   {showActions && <TableCell className="pr-6"><Skeleton className="ml-auto size-8 rounded-md" /></TableCell>}
                 </TableRow>
@@ -163,9 +165,11 @@ export function ProjectTable({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((project) => (
-                <TableRow key={project.id}>
-                  <TableCell className="max-w-xs pl-6 text-sm font-medium whitespace-normal break-words">
+              rows.map((project) => {
+                const needsAttention = (assignmentCounts[project.id] ?? 0) === 0 && project.progress_percent === 0;
+                return (
+                <TableRow key={project.id} className={needsAttention ? "bg-red-50" : undefined}>
+                  <TableCell className="w-50 pl-6 text-sm font-medium whitespace-normal break-words">
                     {project.name}
                     {project.approval_status === "pending" && (
                       <Badge variant="outline" className="ml-2 border-amber-200 bg-amber-50 text-amber-700">
@@ -179,28 +183,6 @@ export function ProjectTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{ITEM_TYPE_LABEL[project.item_type]}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{productNameById.get(project.product_id) ?? "—"}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{formatDate(project.start_date)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {project.end_date ? formatDate(project.end_date) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{STATUS_LABEL[project.status]}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={PRIORITY_BADGE_CLASS[project.priority]}>
-                      {PRIORITY_LABEL[project.priority]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{project.total_working_days}</TableCell>
-                  <TableCell>
-                    <ProgressBar percent={project.progress_percent} />
-                  </TableCell>
-                  <TableCell>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -209,6 +191,28 @@ export function ProjectTable({
                     >
                       {assignmentCounts[project.id] ?? 0} QA{(assignmentCounts[project.id] ?? 0) === 1 ? "" : "s"}
                     </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{productNameById.get(project.product_id) ?? "—"}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <ProgressBar percent={project.progress_percent} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatDate(project.start_date)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {project.end_date ? formatDate(project.end_date) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">{project.total_working_days}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{ITEM_TYPE_LABEL[project.item_type]}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{STATUS_LABEL[project.status]}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={PRIORITY_BADGE_CLASS[project.priority]}>
+                      {PRIORITY_LABEL[project.priority]}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -230,47 +234,73 @@ export function ProjectTable({
                   </TableCell>
                   {showActions && (
                     <TableCell className="pr-6 text-right">
-                      {canEdit && project.approval_status === "approved" && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8" aria-label="Row actions">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => setEditingProject(project)}>
-                              <Pencil className="size-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => setDeletingProject(project)}
-                              className="text-rose-600 focus:text-rose-600"
-                            >
-                              <Trash2 className="size-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                      {canPropose && project.approval_status === "pending" && project.proposed_by === currentProfileId && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={withdrawMutation.isPending}
-                          onClick={() => withdrawMutation.mutate(project.id)}
-                        >
-                          <Undo2 className="size-4" />
-                          Withdraw
-                        </Button>
-                      )}
+                      <div className="flex justify-end gap-1">
+                        {(canEdit || canPropose) && project.approval_status === "approved" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => setAssigningProject(project)}
+                            aria-label="Assign QA"
+                          >
+                            <UserPlus className="size-4" />
+                          </Button>
+                        )}
+                        {canEdit && project.approval_status === "approved" && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="size-8" aria-label="Row actions">
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => setEditingProject(project)}>
+                                <Pencil className="size-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => setDeletingProject(project)}
+                                className="text-rose-600 focus:text-rose-600"
+                              >
+                                <Trash2 className="size-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                        {canPropose && project.approval_status === "pending" && project.proposed_by === currentProfileId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={withdrawMutation.isPending}
+                            onClick={() => withdrawMutation.mutate(project.id)}
+                          >
+                            <Undo2 className="size-4" />
+                            Withdraw
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
       </CardContent>
+
+      {assigningProject && (
+        <BulkAssignDialog
+          key={assigningProject.id}
+          role={role}
+          presetProject={assigningProject}
+          open
+          onOpenChange={(o) => {
+            if (!o) setAssigningProject(null);
+          }}
+        />
+      )}
 
       {editingProject && (
         <ProjectFormDialog
