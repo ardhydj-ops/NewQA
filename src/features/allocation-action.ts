@@ -124,7 +124,13 @@ async function scheduleWeeklyAllocations(params: {
     await assertWithinParallelLimit(admin, userId, projectId, startDateISO, projectEndDateISO);
   }
 
-  let remaining = totalDays;
+  // Rounded once, up front: totalDays arrives as a raw committed-vs-total
+  // difference (weeksBetween can produce fractional weeks, e.g. 2/7), which
+  // can land under 0.5 even when the UI displayed a rounded "0.5 days" to
+  // the user. Rounding here keeps the loop's threshold consistent with
+  // what was actually shown, and keeps every `remaining` value a clean
+  // half-day multiple throughout.
+  let remaining = Math.round(totalDays * 2) / 2;
   let week = isoWeekRange(new Date(`${startDateISO}T00:00:00Z`));
   let weeksCreated = 0;
   let placedDays = 0;
