@@ -17,8 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createAllocation, getRemainingProjectDays, getRemainingUserCapacity } from "@/features/allocation-action";
-import { weeksBetween } from "@/lib/load";
+import { createAllocation, getAssignedQaNames, getRemainingProjectDays } from "@/features/allocation-action";
 import { cn } from "@/lib/utils";
 import type { Priority, Project } from "@/lib/project";
 import type { ProfileRole } from "@/lib/profile";
@@ -37,7 +36,6 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
   const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
   const [roleOnProject, setRoleOnProject] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const queryClient = useQueryClient();
 
@@ -49,40 +47,21 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
     enabled: projectId !== "",
   });
 
+  const { data: assignedQaNames } = useQuery({
+    queryKey: ["assigned-qa-names", projectId],
+    queryFn: () => getAssignedQaNames(projectId),
+    enabled: projectId !== "",
+  });
+
   function handleProjectChange(value: string) {
     setProjectId(value);
     const project = projects.find((p) => p.id === value);
     setStartDate(project?.start_date ?? "");
-    setEndDate(project?.end_date ?? "");
   }
 
-  const validDates = startDate !== "" && endDate !== "" && endDate >= startDate;
-
-  const { data: rangeRemainingCapacity } = useQuery({
-    queryKey: ["remaining-user-capacity", userId, startDate, endDate],
-    queryFn: () => getRemainingUserCapacity(userId, startDate, endDate),
-    enabled: validDates,
-  });
-
-  // Once dates are picked, base remaining capacity on the QA's load over
-  // those specific dates rather than the page's own planning-period range —
-  // this stays correct even when the item spans multiple weeks.
-  const remainingCapacity =
-    validDates && rangeRemainingCapacity !== undefined
-      ? rangeRemainingCapacity
-      : Math.max(0, capacityDays - allocatedDays);
+  const remainingCapacity = Math.max(0, capacityDays - allocatedDays);
   const roundedRemainingCapacity = Math.round(remainingCapacity * 2) / 2;
-  const weeks = validDates ? weeksBetween(startDate, endDate) : null;
-  // Floored at 0.5 (not rounded down to 0) — matches the same fix already
-  // applied to the bulk-assign path, so a nearly-exhausted project still
-  // offers a minimum allocation instead of a dead-end disabled Submit.
-  const computedDaysPerWeek =
-    remainingDays !== undefined && weeks !== null
-      ? Math.max(0.5, Math.round((remainingDays / weeks) * 2) / 2)
-      : null;
-  const overCapacity = computedDaysPerWeek !== null && computedDaysPerWeek > roundedRemainingCapacity;
-  const canSubmit =
-    projectId !== "" && roleOnProject.trim() !== "" && computedDaysPerWeek !== null && computedDaysPerWeek > 0 && !overCapacity;
+  const canSubmit = projectId !== "" && roleOnProject.trim() !== "" && startDate !== "";
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -90,22 +69,29 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
         user_id: userId,
         project_id: projectId,
         role_on_project: roleOnProject,
-        days_per_week: computedDaysPerWeek!,
         start_date: startDate,
-        end_date: endDate || undefined,
         priority,
       }),
-    onSuccess: () => {
-      toast.success(role === "qa_lead" ? "Resource assigned" : "Assignment proposed — pending QA Lead approval");
+    onSuccess: (result) => {
+      if (result.unplacedDays > 0) {
+        toast.warning(
+          `Scheduled ${result.placedDays} day(s) across ${result.weeksCreated} week(s) — ${result.unplacedDays} day(s) couldn't fit before the project's deadline.`,
+        );
+      } else {
+        toast.success(
+          role === "qa_lead"
+            ? `Assigned across ${result.weeksCreated} week(s)`
+            : `Proposed across ${result.weeksCreated} week(s) — pending QA Lead approval`,
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations", "user", userId] });
       queryClient.invalidateQueries({ queryKey: ["remaining-project-days", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["remaining-user-capacity", userId] });
+      queryClient.invalidateQueries({ queryKey: ["assigned-qa-names", projectId] });
       setProjectId("");
       setRoleOnProject("");
       setStartDate("");
-      setEndDate("");
       setPriority("medium");
     },
     onError: (error: Error) => toast.error(error.message),
@@ -173,10 +159,15 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
           </PopoverContent>
         </Popover>
         {selectedProject && (
-          <p className="text-xs text-muted-foreground">
-            Remaining days for this item:{" "}
-            {remainingDays !== undefined ? `${Math.round(remainingDays * 2) / 2} days` : "..."}
-          </p>
+          <>
+            <p className="text-xs text-muted-foreground">
+              Remaining days for this item:{" "}
+              {remainingDays !== undefined ? `${Math.round(remainingDays * 2) / 2} days` : "..."}
+            </p>
+            {assignedQaNames && assignedQaNames.length > 0 && (
+              <p className="text-xs text-muted-foreground">Already assigned: {assignedQaNames.join(", ")}</p>
+            )}
+          </>
         )}
       </div>
 
@@ -206,44 +197,24 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="start_date">Start</Label>
-          <Input
-            id="start_date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            min={selectedProject?.start_date}
-            max={selectedProject?.end_date ?? undefined}
-            required
-            disabled={!projectId}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="end_date">End</Label>
-          <Input
-            id="end_date"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            min={selectedProject?.start_date}
-            max={selectedProject?.end_date ?? undefined}
-            required
-            disabled={!projectId}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="start_date">Start Date</Label>
+        <Input
+          id="start_date"
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          min={selectedProject?.start_date}
+          max={selectedProject?.end_date ?? undefined}
+          required
+          disabled={!projectId}
+        />
       </div>
 
-      {startDate !== "" && endDate !== "" && endDate < startDate && (
-        <p className="text-sm text-rose-600">End date must be on or after start date.</p>
-      )}
-
-      {computedDaysPerWeek !== null && (
-        <p className={`text-sm ${overCapacity ? "text-rose-600" : "text-muted-foreground"}`}>
-          This will allocate ~{computedDaysPerWeek} days/week.
-          {overCapacity &&
-            ` This QA only has ${roundedRemainingCapacity} days/week available — widen the date range or pick a different QA.`}
+      {startDate !== "" && (
+        <p className="text-sm text-muted-foreground">
+          Assigned days are scheduled week by week at this QA&apos;s available capacity, continuing into future
+          weeks as needed.
         </p>
       )}
 
