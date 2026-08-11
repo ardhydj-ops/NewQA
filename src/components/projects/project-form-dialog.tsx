@@ -65,8 +65,8 @@ function formFromProject(project?: Project): FormState {
         progress_percent: "0",
         total_working_hours: "",
         priority: "medium",
-        jira_link: "",
-        jiva_link: "",
+        jira_link: "https://jpnqa.atlassian.net/jira",
+        jiva_link: "https://jiva.jalin.co.id/",
       };
 }
 

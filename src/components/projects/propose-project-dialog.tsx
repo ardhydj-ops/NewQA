@@ -52,8 +52,8 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   const [productId, setProductId] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("to_do");
   const [priority, setPriority] = useState<Priority>("medium");
-  const [jiraLink, setJiraLink] = useState("");
-  const [jivaLink, setJivaLink] = useState("");
+  const [jiraLink, setJiraLink] = useState("https://jpnqa.atlassian.net/jira");
+  const [jivaLink, setJivaLink] = useState("https://jiva.jalin.co.id/");
   const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow()]);
   const queryClient = useQueryClient();
 
@@ -96,8 +96,8 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
       setName("");
       setStartDate("");
       setEndDate("");
-      setJiraLink("");
-      setJivaLink("");
+      setJiraLink("https://jpnqa.atlassian.net/jira");
+      setJivaLink("https://jiva.jalin.co.id/");
       setRows([emptyAllocationRow()]);
       onOpenChange(false);
     },
