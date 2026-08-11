@@ -12,8 +12,16 @@ export const ProjectInput = z.object({
   progress_percent: z.number().int().min(0).max(100),
   total_working_hours: z.number().positive("Total working hours must be greater than 0"),
   priority: z.enum(["low", "medium", "high", "critical"]),
+  jira_link: z.string().trim().url("Enter a valid JIRA URL"),
+  jiva_link: z.string().trim().url("Enter a valid Jiva URL"),
 });
 export type ProjectInput = z.infer<typeof ProjectInput>;
+
+// PM proposals never set Total Working Hours — the QA Lead fills it in at
+// approval time (see ApproveProjectProposalInput below). Every other field,
+// including jira_link/jiva_link, stays required on the proposal path too.
+const ProjectProposalProjectInput = ProjectInput.partial({ total_working_hours: true });
+export type ProjectProposalProjectInput = z.infer<typeof ProjectProposalProjectInput>;
 
 export const ProposedAllocationInput = z.object({
   user_id: z.string().uuid("Select a tester"),
@@ -25,7 +33,12 @@ export const ProposedAllocationInput = z.object({
 export type ProposedAllocationInput = z.infer<typeof ProposedAllocationInput>;
 
 export const ProjectProposalInput = z.object({
-  project: ProjectInput,
+  project: ProjectProposalProjectInput,
   allocations: z.array(ProposedAllocationInput).min(1, "Add at least one tester assignment"),
 });
 export type ProjectProposalInput = z.infer<typeof ProjectProposalInput>;
+
+export const ApproveProjectProposalInput = z.object({
+  total_working_hours: z.number().positive("Total working hours must be greater than 0"),
+});
+export type ApproveProjectProposalInput = z.infer<typeof ApproveProjectProposalInput>;
