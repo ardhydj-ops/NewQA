@@ -186,7 +186,7 @@ export async function withdrawAllocationProposal(id: string): Promise<{ success:
 }
 
 /**
- * A Project Manager's request to change dates/hours/priority on an
+ * A Project Manager's request to change dates/days/priority on an
  * already-approved allocation. Stages into `proposed_*` — never touches
  * the live columns directly. Blocked while another change is already
  * pending on the same row. A QA Lead's own rebaseline instead calls

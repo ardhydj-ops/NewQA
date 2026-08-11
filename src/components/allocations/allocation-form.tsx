@@ -71,10 +71,16 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
     validDates && rangeRemainingCapacity !== undefined
       ? rangeRemainingCapacity
       : Math.max(0, capacityDays - allocatedDays);
+  const roundedRemainingCapacity = Math.round(remainingCapacity * 2) / 2;
   const weeks = validDates ? weeksBetween(startDate, endDate) : null;
+  // Floored at 0.5 (not rounded down to 0) — matches the same fix already
+  // applied to the bulk-assign path, so a nearly-exhausted project still
+  // offers a minimum allocation instead of a dead-end disabled Submit.
   const computedDaysPerWeek =
-    remainingDays !== undefined && weeks !== null ? Math.round((remainingDays / weeks) * 2) / 2 : null;
-  const overCapacity = computedDaysPerWeek !== null && computedDaysPerWeek > remainingCapacity;
+    remainingDays !== undefined && weeks !== null
+      ? Math.max(0.5, Math.round((remainingDays / weeks) * 2) / 2)
+      : null;
+  const overCapacity = computedDaysPerWeek !== null && computedDaysPerWeek > roundedRemainingCapacity;
   const canSubmit =
     projectId !== "" && roleOnProject.trim() !== "" && computedDaysPerWeek !== null && computedDaysPerWeek > 0 && !overCapacity;
 
@@ -120,7 +126,7 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Remaining Capacity</span>
-          <span className="font-medium">{Math.round(remainingCapacity * 2) / 2} days / week</span>
+          <span className="font-medium">{roundedRemainingCapacity} days / week</span>
         </div>
       </div>
 
@@ -235,9 +241,9 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
 
       {computedDaysPerWeek !== null && (
         <p className={`text-sm ${overCapacity ? "text-rose-600" : "text-muted-foreground"}`}>
-          This will allocate ~{Math.round(computedDaysPerWeek * 2) / 2} days/week.
+          This will allocate ~{computedDaysPerWeek} days/week.
           {overCapacity &&
-            ` This QA only has ${Math.round(remainingCapacity * 2) / 2} days/week available — widen the date range or pick a different QA.`}
+            ` This QA only has ${roundedRemainingCapacity} days/week available — widen the date range or pick a different QA.`}
         </p>
       )}
 

@@ -163,7 +163,7 @@ export function BulkAssignDialog({ role, open, onOpenChange }: BulkAssignDialogP
 
           {previewDaysPerWeek !== null && (
             <p className="text-sm text-muted-foreground">
-              Each selected QA gets ~{previewDaysPerWeek.toFixed(1)} days/week.
+              Each selected QA gets ~{previewDaysPerWeek} days/week.
             </p>
           )}
 
