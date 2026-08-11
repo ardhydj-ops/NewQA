@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
-import { ProjectInput, ProjectProposalInput } from "@/features/project-schema";
+import { ProjectChangeInput, ProjectInput, ProjectProposalInput } from "@/features/project-schema";
 import type { Project, ProjectStatus, ApprovalStatus, ItemType, Priority } from "@/lib/project";
 
 export async function getProjects({
@@ -234,6 +234,52 @@ export async function withdrawProjectProposal(id: string): Promise<{ success: tr
   }
 
   const { error } = await admin.from("projects").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+/**
+ * A Project Manager's request to change Start Date / End Date / Total
+ * Working Days / Priority on an already-approved project. Stages into
+ * `proposed_*` — never touches the live columns directly. Blocked while
+ * another change is already pending on the same row. A QA Lead's own edit
+ * instead goes through `updateProject` directly (immediate, no staging).
+ */
+export async function proposeProjectChange(id: string, input: unknown): Promise<{ success: true }> {
+  const profile = await requireRole(["project_manager"]);
+
+  const parsed = ProjectChangeInput.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: project } = await admin
+    .from("projects")
+    .select("approval_status, proposed_start_date")
+    .eq("id", id)
+    .single();
+
+  if (!project || project.approval_status !== "approved") {
+    throw new Error("Only an approved item can be rebaselined");
+  }
+  if (project.proposed_start_date !== null) {
+    throw new Error("This item already has a pending change awaiting approval");
+  }
+
+  const { error } = await admin
+    .from("projects")
+    .update({
+      proposed_start_date: parsed.data.start_date,
+      proposed_end_date: parsed.data.end_date,
+      proposed_total_working_days: parsed.data.total_working_days,
+      proposed_priority: parsed.data.priority,
+      change_proposed_by: profile.id,
+      change_requested_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
   if (error) throw new Error(error.message);
   return { success: true };
 }

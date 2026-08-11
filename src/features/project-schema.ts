@@ -51,3 +51,14 @@ export const ApproveProjectProposalInput = z.object({
     .multipleOf(0.5, "Total working days must be in half-day increments"),
 });
 export type ApproveProjectProposalInput = z.infer<typeof ApproveProjectProposalInput>;
+
+export const ProjectChangeInput = z.object({
+  start_date: isoDate,
+  end_date: isoDate,
+  total_working_days: z
+    .number()
+    .positive("Total working days must be greater than 0")
+    .multipleOf(0.5, "Total working days must be in half-day increments"),
+  priority: z.enum(["low", "medium", "high", "critical"]),
+});
+export type ProjectChangeInput = z.infer<typeof ProjectChangeInput>;
