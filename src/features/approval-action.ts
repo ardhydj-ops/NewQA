@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import { assertWithinParallelLimit } from "@/features/allocation-action";
+import { ApproveProjectProposalInput } from "@/features/project-schema";
 import type { Allocation } from "@/lib/allocation";
 import type { Project } from "@/lib/project";
 
@@ -54,8 +55,13 @@ export async function getPendingAllocationChanges(): Promise<Allocation[]> {
   return (data ?? []) as Allocation[];
 }
 
-export async function approveProjectProposal(projectId: string): Promise<{ success: true }> {
+export async function approveProjectProposal(projectId: string, input: unknown): Promise<{ success: true }> {
   await requireRole(["qa_lead"]);
+
+  const parsed = ApproveProjectProposalInput.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+  }
 
   const admin = createAdminClient();
 
@@ -72,7 +78,7 @@ export async function approveProjectProposal(projectId: string): Promise<{ succe
 
   const { error: projectError } = await admin
     .from("projects")
-    .update({ approval_status: "approved" })
+    .update({ approval_status: "approved", total_working_hours: parsed.data.total_working_hours })
     .eq("id", projectId);
   if (projectError) throw new Error(projectError.message);
 
