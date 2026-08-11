@@ -209,3 +209,70 @@ export async function rejectAllocationChange(id: string): Promise<{ success: tru
   if (error) throw new Error(error.message);
   return { success: true };
 }
+
+export async function getPendingProjectChanges(): Promise<Project[]> {
+  await requireRole(["qa_lead"]);
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("projects")
+    .select("*")
+    .not("proposed_start_date", "is", null)
+    .order("change_requested_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Project[];
+}
+
+export async function approveProjectChange(id: string): Promise<{ success: true }> {
+  await requireRole(["qa_lead"]);
+
+  const admin = createAdminClient();
+
+  const { data: project, error: fetchError } = await admin
+    .from("projects")
+    .select("proposed_start_date, proposed_end_date, proposed_total_working_days, proposed_priority")
+    .eq("id", id)
+    .single();
+  if (fetchError || !project || project.proposed_start_date === null) {
+    throw new Error("This item has no pending change");
+  }
+
+  const { error } = await admin
+    .from("projects")
+    .update({
+      start_date: project.proposed_start_date,
+      end_date: project.proposed_end_date,
+      total_working_days: project.proposed_total_working_days,
+      priority: project.proposed_priority,
+      proposed_start_date: null,
+      proposed_end_date: null,
+      proposed_total_working_days: null,
+      proposed_priority: null,
+      change_proposed_by: null,
+      change_requested_at: null,
+    })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+export async function rejectProjectChange(id: string): Promise<{ success: true }> {
+  await requireRole(["qa_lead"]);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("projects")
+    .update({
+      proposed_start_date: null,
+      proposed_end_date: null,
+      proposed_total_working_days: null,
+      proposed_priority: null,
+      change_proposed_by: null,
+      change_requested_at: null,
+    })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
