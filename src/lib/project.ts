@@ -27,6 +27,12 @@ export type Project = {
   jiva_link: string;
   approval_status: ApprovalStatus;
   proposed_by: string | null;
+  proposed_start_date: string | null;
+  proposed_end_date: string | null;
+  proposed_total_working_days: number | null;
+  proposed_priority: Priority | null;
+  change_proposed_by: string | null;
+  change_requested_at: string | null;
   created_at: string;
   updated_at: string;
 };
