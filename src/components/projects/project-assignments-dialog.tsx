@@ -51,7 +51,7 @@ export function ProjectAssignmentsDialog({ project, open, onOpenChange }: Projec
             <TableRow>
               <TableHead>QA</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead className="text-right">Hours/Wk</TableHead>
+              <TableHead className="text-right">Days/Wk</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Timeline</TableHead>
               <TableHead>Status</TableHead>
@@ -78,7 +78,7 @@ export function ProjectAssignmentsDialog({ project, open, onOpenChange }: Projec
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{allocation.role_on_project}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
-                    {Math.round(allocation.hours_per_week * 10) / 10}
+                    {Math.round(allocation.days_per_week * 2) / 2}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{PRIORITY_LABEL[allocation.priority]}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">

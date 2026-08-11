@@ -30,13 +30,13 @@ import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 type AllocationRow = {
   user_id: string;
   role_on_project: string;
-  hours_per_week: string;
+  days_per_week: string;
   start_date: string;
   end_date: string;
 };
 
 function emptyAllocationRow(): AllocationRow {
-  return { user_id: "", role_on_project: "", hours_per_week: "8", start_date: "", end_date: "" };
+  return { user_id: "", role_on_project: "", days_per_week: "1", start_date: "", end_date: "" };
 }
 
 type ProposeProjectDialogProps = {
@@ -85,7 +85,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
         allocations: rows.map((row) => ({
           user_id: row.user_id,
           role_on_project: row.role_on_project,
-          hours_per_week: Number(row.hours_per_week),
+          days_per_week: Number(row.days_per_week),
           start_date: row.start_date,
           end_date: row.end_date || undefined,
         })),
@@ -259,13 +259,13 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                   <Input value={row.role_on_project} onChange={(e) => updateRow(index, { role_on_project: e.target.value })} required />
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Hrs/Wk</Label>
+                  <Label className="text-xs">Days/Wk</Label>
                   <Input
                     type="number"
-                    min={1}
-                    step={1}
-                    value={row.hours_per_week}
-                    onChange={(e) => updateRow(index, { hours_per_week: e.target.value })}
+                    min={0.5}
+                    step={0.5}
+                    value={row.days_per_week}
+                    onChange={(e) => updateRow(index, { days_per_week: e.target.value })}
                     required
                   />
                 </div>

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { createProject, updateProject } from "@/features/project-action";
 import { getProducts } from "@/features/product-action";
-import { weekdaysBetween } from "@/lib/load";
+import { monthsBetween } from "@/lib/load";
 import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
 
 type FormState = {
@@ -34,7 +34,7 @@ type FormState = {
   product_id: string;
   status: ProjectStatus;
   progress_percent: string;
-  total_working_hours: string;
+  total_working_days: string;
   priority: Priority;
   jira_link: string;
   jiva_link: string;
@@ -50,7 +50,7 @@ function formFromProject(project?: Project): FormState {
         product_id: project.product_id,
         status: project.status,
         progress_percent: String(project.progress_percent),
-        total_working_hours: String(project.total_working_hours),
+        total_working_days: String(project.total_working_days),
         priority: project.priority,
         jira_link: project.jira_link,
         jiva_link: project.jiva_link,
@@ -63,7 +63,7 @@ function formFromProject(project?: Project): FormState {
         product_id: "",
         status: "to_do",
         progress_percent: "0",
-        total_working_hours: "",
+        total_working_days: "",
         priority: "medium",
         jira_link: "https://jpnqa.atlassian.net/jira",
         jiva_link: "https://jiva.jalin.co.id/",
@@ -80,14 +80,16 @@ type ProjectFormDialogProps = {
 export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: ProjectFormDialogProps) {
   const isEdit = mode === "edit";
   const [form, setForm] = useState<FormState>(() => formFromProject(initialValue));
-  // Total Working Hours auto-fills from the dates on create; once the QA
+  // Total Working Days auto-fills from the dates on create (months spanned
+  // x 22 working days/month, rounded to the nearest half-day); once the QA
   // Lead edits it directly, later date changes stop overwriting it.
-  const [hoursTouched, setHoursTouched] = useState(false);
+  const [daysTouched, setDaysTouched] = useState(false);
   const queryClient = useQueryClient();
 
   function applyDateChange(startDate: string, endDate: string) {
-    if (isEdit || hoursTouched || startDate === "" || endDate === "" || endDate < startDate) return;
-    setForm((f) => ({ ...f, total_working_hours: String(weekdaysBetween(startDate, endDate) * 8) }));
+    if (isEdit || daysTouched || startDate === "" || endDate === "" || endDate < startDate) return;
+    const days = Math.round(monthsBetween(startDate, endDate) * 22 * 2) / 2;
+    setForm((f) => ({ ...f, total_working_days: String(days) }));
   }
 
   const { data: products } = useQuery({
@@ -105,7 +107,7 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
         product_id: form.product_id,
         status: form.status,
         progress_percent: Number(form.progress_percent),
-        total_working_hours: Number(form.total_working_hours),
+        total_working_days: Number(form.total_working_days),
         priority: form.priority,
         jira_link: form.jira_link,
         jiva_link: form.jiva_link,
@@ -219,16 +221,16 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="total_working_hours">Total Working Hours</Label>
+              <Label htmlFor="total_working_days">Total Working Days</Label>
               <Input
-                id="total_working_hours"
+                id="total_working_days"
                 type="number"
-                min={1}
-                step={1}
-                value={form.total_working_hours}
+                min={0.5}
+                step={0.5}
+                value={form.total_working_days}
                 onChange={(e) => {
-                  setHoursTouched(true);
-                  setForm((f) => ({ ...f, total_working_hours: e.target.value }));
+                  setDaysTouched(true);
+                  setForm((f) => ({ ...f, total_working_days: e.target.value }));
                 }}
                 required
               />

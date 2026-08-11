@@ -125,7 +125,7 @@ export function ProjectTable({
               <TableHead>End Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
-              <TableHead className="text-right">Total Hrs</TableHead>
+              <TableHead className="text-right">Total Days</TableHead>
               <TableHead>Progress</TableHead>
               <TableHead>Assigned</TableHead>
               <TableHead>Links</TableHead>
@@ -196,7 +196,7 @@ export function ProjectTable({
                       {PRIORITY_LABEL[project.priority]}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{project.total_working_hours}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">{project.total_working_days}</TableCell>
                   <TableCell>
                     <ProgressBar percent={project.progress_percent} />
                   </TableCell>
