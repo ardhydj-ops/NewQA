@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { proposeAllocationChange, updateAllocation } from "@/features/allocation-action";
 import type { Allocation } from "@/lib/allocation";
+import { isoWeekRange, weekdaysBetween } from "@/lib/load";
 import type { Priority } from "@/lib/project";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
@@ -39,9 +40,22 @@ export function RebaselineDialog({ allocation, role, open, onOpenChange }: Rebas
   const [endDate, setEndDate] = useState(allocation.end_date ?? "");
   const [daysPerWeek, setDaysPerWeek] = useState(String(allocation.days_per_week));
   const [priority, setPriority] = useState<Priority>(allocation.priority);
+  // Allocated Days (Weekly) auto-suggests from the new dates (Mon-Fri
+  // weekday count within the first calendar week of the range, capped at
+  // 5) — same "stop overwriting once touched" behavior as the project
+  // form's Total Working Days auto-fill.
+  const [daysTouched, setDaysTouched] = useState(false);
   const queryClient = useQueryClient();
 
   const isLead = QA_LEAD_ROLES.includes(role);
+
+  function applyDateChange(newStart: string, newEnd: string) {
+    if (daysTouched || newStart === "") return;
+    const week = isoWeekRange(new Date(`${newStart}T00:00:00Z`));
+    const windowEnd = newEnd && newEnd < week.end ? newEnd : week.end;
+    if (windowEnd < newStart) return;
+    setDaysPerWeek(String(Math.min(5, weekdaysBetween(newStart, windowEnd))));
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -96,18 +110,38 @@ export function RebaselineDialog({ allocation, role, open, onOpenChange }: Rebas
               min={0.5}
               step={0.5}
               value={daysPerWeek}
-              onChange={(e) => setDaysPerWeek(e.target.value)}
+              onChange={(e) => {
+                setDaysTouched(true);
+                setDaysPerWeek(e.target.value);
+              }}
               required
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="rebaseline_start">Start</Label>
-              <Input id="rebaseline_start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+              <Input
+                id="rebaseline_start"
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  applyDateChange(e.target.value, endDate);
+                }}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="rebaseline_end">End</Label>
-              <Input id="rebaseline_end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Input
+                id="rebaseline_end"
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  applyDateChange(startDate, e.target.value);
+                }}
+              />
             </div>
           </div>
           <div className="space-y-2">
