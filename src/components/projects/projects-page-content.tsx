@@ -21,7 +21,7 @@ import { getApprovedAllocationCountsByProject } from "@/features/allocation-acti
 import { getProducts } from "@/features/product-action";
 import { getProjects } from "@/features/project-action";
 import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 const PAGE_SIZE = 10;
 
@@ -142,7 +142,7 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
             Manage and track projects, support testing, problem incidents, and service requests.
           </p>
         </div>
-        {role === "qa_lead" && (
+        {QA_LEAD_ROLES.includes(role) && (
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
             New Item
@@ -292,7 +292,7 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
         </div>
       )}
 
-      {role === "qa_lead" && <ProjectFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} />}
+      {QA_LEAD_ROLES.includes(role) && <ProjectFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} />}
       {role === "project_manager" && <ProposeProjectDialog open={proposeOpen} onOpenChange={setProposeOpen} />}
     </div>
   );

@@ -25,7 +25,7 @@ import {
 import { proposeAllocationChange, updateAllocation } from "@/features/allocation-action";
 import type { Allocation } from "@/lib/allocation";
 import type { Priority } from "@/lib/project";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 type RebaselineDialogProps = {
   allocation: Allocation;
@@ -41,7 +41,7 @@ export function RebaselineDialog({ allocation, role, open, onOpenChange }: Rebas
   const [priority, setPriority] = useState<Priority>(allocation.priority);
   const queryClient = useQueryClient();
 
-  const isLead = role === "qa_lead";
+  const isLead = QA_LEAD_ROLES.includes(role);
 
   const mutation = useMutation({
     mutationFn: () =>

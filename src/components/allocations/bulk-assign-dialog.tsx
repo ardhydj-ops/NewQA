@@ -27,7 +27,7 @@ import { createBulkAllocations, getRemainingProjectDays } from "@/features/alloc
 import { getAssignableProfiles } from "@/features/profile-action";
 import { getProjects } from "@/features/project-action";
 import type { Project } from "@/lib/project";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 type BulkAssignDialogProps = {
   role: ProfileRole;
@@ -74,7 +74,7 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
         const partiallyPlaced = result.created.filter((c) => c.unplacedDays > 0);
         if (partiallyPlaced.length === 0) {
           toast.success(
-            role === "qa_lead"
+            QA_LEAD_ROLES.includes(role)
               ? `Assigned ${result.created.length} QA member(s)`
               : `Proposed assignment for ${result.created.length} QA member(s) — pending QA Lead approval`,
           );

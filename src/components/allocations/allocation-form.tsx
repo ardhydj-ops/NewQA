@@ -20,7 +20,7 @@ import {
 import { createAllocation, getAssignedQaNames, getRemainingProjectDays } from "@/features/allocation-action";
 import { cn } from "@/lib/utils";
 import type { Priority, Project } from "@/lib/project";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 type AllocationFormProps = {
   userId: string;
@@ -79,7 +79,7 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
         );
       } else {
         toast.success(
-          role === "qa_lead"
+          QA_LEAD_ROLES.includes(role)
             ? `Assigned across ${result.weeksCreated} week(s)`
             : `Proposed across ${result.weeksCreated} week(s) — pending QA Lead approval`,
         );
@@ -220,7 +220,7 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
 
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={!canSubmit || mutation.isPending}>
-          {mutation.isPending ? "Assigning..." : role === "qa_lead" ? "Assign Resource" : "Propose Assignment"}
+          {mutation.isPending ? "Assigning..." : QA_LEAD_ROLES.includes(role) ? "Assign Resource" : "Propose Assignment"}
         </Button>
       </div>
     </form>

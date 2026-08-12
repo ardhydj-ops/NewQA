@@ -45,7 +45,7 @@ import { ProjectRebaselineDialog } from "@/components/projects/project-rebaselin
 import { deleteProject, withdrawProjectProposal } from "@/features/project-action";
 import { formatDate } from "@/lib/format";
 import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   to_do: "To Do",
@@ -154,7 +154,7 @@ export function ProjectTable({
   const [rebaseliningProject, setRebaseliningProject] = useState<Project | null>(null);
   const queryClient = useQueryClient();
 
-  const canEdit = role === "qa_lead";
+  const canEdit = QA_LEAD_ROLES.includes(role);
   const canPropose = role === "project_manager";
   const showActions = canEdit || canPropose;
   const columnCount = showActions ? 11 : 10;

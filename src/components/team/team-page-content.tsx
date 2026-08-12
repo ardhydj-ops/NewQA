@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { TeamFormDialog } from "@/components/team/team-form-dialog";
 import { TeamTable } from "@/components/team/team-table";
 import { getProfiles } from "@/features/profile-action";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 export function TeamPageContent({ role }: { role: ProfileRole }) {
   const [createOpen, setCreateOpen] = useState(false);
-  const canWrite = role === "qa_lead";
+  const canWrite = QA_LEAD_ROLES.includes(role);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["profiles"],

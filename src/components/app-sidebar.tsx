@@ -22,7 +22,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import type { Profile, ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type Profile, type ProfileRole } from "@/lib/profile";
 
 type NavItem = {
   href: string;
@@ -60,13 +60,13 @@ const ITEMS: NavItem[] = [
     href: "/approvals",
     label: "Approvals",
     icon: CheckSquare,
-    roles: ["qa_lead"],
+    roles: QA_LEAD_ROLES,
   },
   {
     href: "/settings",
     label: "Settings",
     icon: SettingsIcon,
-    roles: ["qa_lead"],
+    roles: QA_LEAD_ROLES,
   },
 ];
 

@@ -15,7 +15,7 @@ import { getRangeDashboard, type ResourceLoadRow } from "@/features/dashboard-ac
 import { getProjects } from "@/features/project-action";
 import { getQaGroups } from "@/features/qa-group-action";
 import { isoWeekRange } from "@/lib/load";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 function mondayOf(date: Date): string {
   return isoWeekRange(date).start;
@@ -32,7 +32,7 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
 
-  const canWrite = role === "qa_lead" || role === "project_manager";
+  const canWrite = QA_LEAD_ROLES.includes(role) || role === "project_manager";
   const validRange = rangeStart <= rangeEnd;
 
   const { data: dashboard, isLoading: loadLoading } = useQuery({

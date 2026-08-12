@@ -26,7 +26,7 @@ import {
 import { hasPendingChange, type Allocation } from "@/lib/allocation";
 import { formatDate } from "@/lib/format";
 import type { Priority, Project } from "@/lib/project";
-import type { ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
 const PRIORITY_LABEL: Record<Priority, string> = {
   low: "Low",
@@ -77,7 +77,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
     .filter((a) => a.approval_status === "approved")
     .reduce((sum, a) => sum + a.days_per_week, 0);
 
-  const canRebaseline = role === "qa_lead" || role === "project_manager";
+  const canRebaseline = QA_LEAD_ROLES.includes(role) || role === "project_manager";
 
   return (
     <Card>
@@ -152,7 +152,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
                           <GitBranch className="size-4" />
                         </Button>
                       )}
-                      {role === "qa_lead" && allocation.approval_status === "approved" && (
+                      {QA_LEAD_ROLES.includes(role) && allocation.approval_status === "approved" && (
                         <Button
                           variant="ghost"
                           size="icon"
