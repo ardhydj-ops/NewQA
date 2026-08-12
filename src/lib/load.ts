@@ -100,11 +100,14 @@ export function weeksBetween(startDate: string, endDate: string): number {
   return Math.max(1, days / 7);
 }
 
-/** Months spanned by [startDate, endDate], as a fraction; always at least 1
- *  (mirrors weeksBetween's day/7 pattern, but day/30). */
-export function monthsBetween(startDate: string, endDate: string): number {
-  const days = Math.round((toUTCDate(endDate).getTime() - toUTCDate(startDate).getTime()) / MS_PER_DAY) + 1;
-  return Math.max(1, days / 30);
+/** Count of Mon-Fri calendar days in [startDate, endDate], inclusive. */
+export function weekdaysBetween(startDate: string, endDate: string): number {
+  let count = 0;
+  for (let d = toUTCDate(startDate); d <= toUTCDate(endDate); d = new Date(d.getTime() + MS_PER_DAY)) {
+    const day = d.getUTCDay();
+    if (day !== 0 && day !== 6) count++;
+  }
+  return count;
 }
 
 export type DatedRange = { start_date: string; end_date: string | null };

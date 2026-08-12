@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { PendingProjectProposal } from "@/features/approval-action";
 import { formatDate } from "@/lib/format";
-import { monthsBetween } from "@/lib/load";
+import { weekdaysBetween } from "@/lib/load";
 
 type ProjectProposalCardProps = {
   proposal: PendingProjectProposal;
@@ -30,9 +30,7 @@ export function ProjectProposalCard({
   rejecting,
 }: ProjectProposalCardProps) {
   const [days, setDays] = useState(() =>
-    proposal.end_date
-      ? String(Math.round(monthsBetween(proposal.start_date, proposal.end_date) * 22 * 2) / 2)
-      : "",
+    proposal.end_date ? String(weekdaysBetween(proposal.start_date, proposal.end_date)) : "",
   );
   const parsedDays = Number(days);
   const canApprove = days.trim() !== "" && parsedDays > 0;

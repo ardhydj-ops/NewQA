@@ -24,7 +24,7 @@ import {
 import { ProductMultiSelect } from "@/components/products/product-multi-select";
 import { createProject, updateProject } from "@/features/project-action";
 import { getProducts } from "@/features/product-action";
-import { monthsBetween } from "@/lib/load";
+import { weekdaysBetween } from "@/lib/load";
 import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
 
 type FormState = {
@@ -81,15 +81,16 @@ type ProjectFormDialogProps = {
 export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: ProjectFormDialogProps) {
   const isEdit = mode === "edit";
   const [form, setForm] = useState<FormState>(() => formFromProject(initialValue));
-  // Total Working Days auto-fills from the dates on create (months spanned
-  // x 22 working days/month, rounded to the nearest half-day); once the QA
-  // Lead edits it directly, later date changes stop overwriting it.
+  // Total Working Days auto-fills from the dates whenever Start/End Date
+  // changes (exact Mon-Fri weekday count) — on create and on edit alike;
+  // once the QA Lead edits the days field directly, later date changes
+  // stop overwriting it.
   const [daysTouched, setDaysTouched] = useState(false);
   const queryClient = useQueryClient();
 
   function applyDateChange(startDate: string, endDate: string) {
-    if (isEdit || daysTouched || startDate === "" || endDate === "" || endDate < startDate) return;
-    const days = Math.round(monthsBetween(startDate, endDate) * 22 * 2) / 2;
+    if (daysTouched || startDate === "" || endDate === "" || endDate < startDate) return;
+    const days = weekdaysBetween(startDate, endDate);
     setForm((f) => ({ ...f, total_working_days: String(days) }));
   }
 
