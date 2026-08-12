@@ -82,6 +82,7 @@ async function scheduleWeeklyAllocations(params: {
   admin: AdminClient;
   userId: string;
   projectId: string;
+  productId: string;
   roleOnProject: string;
   priority: Priority;
   totalDays: number;
@@ -94,6 +95,7 @@ async function scheduleWeeklyAllocations(params: {
     admin,
     userId,
     projectId,
+    productId,
     roleOnProject,
     priority,
     totalDays,
@@ -148,6 +150,7 @@ async function scheduleWeeklyAllocations(params: {
       const { error } = await admin.from("allocations").insert({
         user_id: userId,
         project_id: projectId,
+        product_id: productId,
         role_on_project: roleOnProject,
         days_per_week: thisWeekDays,
         start_date: rowStart,
@@ -211,6 +214,7 @@ export async function createAllocation(
     .from("allocations")
     .select("days_per_week, start_date, end_date")
     .eq("project_id", parsed.data.project_id)
+    .eq("product_id", parsed.data.product_id)
     .eq("approval_status", "approved");
   if (existingError) throw new Error(existingError.message);
 
@@ -226,6 +230,7 @@ export async function createAllocation(
     admin,
     userId: parsed.data.user_id,
     projectId: parsed.data.project_id,
+    productId: parsed.data.product_id,
     roleOnProject: parsed.data.role_on_project,
     priority: parsed.data.priority,
     totalDays: remainingDays,
@@ -260,6 +265,7 @@ export async function updateAllocation(id: string, input: unknown): Promise<{ su
     .update({
       user_id: parsed.data.user_id,
       project_id: parsed.data.project_id,
+      product_id: parsed.data.product_id,
       role_on_project: parsed.data.role_on_project,
       days_per_week: parsed.data.days_per_week,
       start_date: parsed.data.start_date,
@@ -388,6 +394,7 @@ export async function createBulkAllocations(input: unknown): Promise<{
     .from("allocations")
     .select("days_per_week, start_date, end_date")
     .eq("project_id", parsed.data.project_id)
+    .eq("product_id", parsed.data.product_id)
     .eq("approval_status", "approved");
   if (existingError) throw new Error(existingError.message);
 
@@ -407,6 +414,7 @@ export async function createBulkAllocations(input: unknown): Promise<{
         admin,
         userId,
         projectId: parsed.data.project_id,
+        productId: parsed.data.product_id,
         roleOnProject: parsed.data.role_on_project,
         priority: "medium",
         totalDays: remainingDays,
@@ -431,7 +439,7 @@ export async function createBulkAllocations(input: unknown): Promise<{
  * project has a required `end_date` since v2, so an open-ended allocation
  * always has a concrete fallback bound). Floored at 0.
  */
-export async function getRemainingProjectDays(projectId: string): Promise<number> {
+export async function getRemainingProjectDays(projectId: string, productId: string): Promise<number> {
   const supabase = await createClient();
 
   const { data: project, error: projectError } = await supabase
@@ -445,6 +453,7 @@ export async function getRemainingProjectDays(projectId: string): Promise<number
     .from("allocations")
     .select("days_per_week, start_date, end_date")
     .eq("project_id", projectId)
+    .eq("product_id", productId)
     .eq("approval_status", "approved");
   if (error) throw new Error(error.message);
 
@@ -491,13 +500,14 @@ export async function getRemainingUserCapacity(
 }
 
 /** Distinct names of QAs already *approved* on this project, for display when picking a target project. */
-export async function getAssignedQaNames(projectId: string): Promise<string[]> {
+export async function getAssignedQaNames(projectId: string, productId: string): Promise<string[]> {
   const supabase = await createClient();
 
   const { data: allocations, error } = await supabase
     .from("allocations")
     .select("user_id")
     .eq("project_id", projectId)
+    .eq("product_id", productId)
     .eq("approval_status", "approved");
   if (error) throw new Error(error.message);
 
