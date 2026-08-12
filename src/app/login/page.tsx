@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,14 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm space-y-6 rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
         <div className="space-y-1 text-center">
+          <Image
+            src="/jalin-logo.jpg"
+            alt="Jalin"
+            width={160}
+            height={70}
+            className="mx-auto mb-2 h-auto w-40"
+            priority
+          />
           <h1 className="text-xl font-semibold tracking-tight">QA Resource Manager</h1>
           <p className="text-sm text-muted-foreground">Sign in to continue</p>
         </div>
