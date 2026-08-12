@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -85,8 +86,8 @@ export function AppSidebar({ profile }: { profile: Profile }) {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <LayoutDashboard className="size-4" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-white">
+            <Image src="/jalin-logo.jpg" alt="Jalin" width={32} height={32} className="size-6 object-contain" />
           </div>
           <span className="text-base font-semibold tracking-tight text-white group-data-[collapsible=icon]:hidden">
             QA Resource Manager
