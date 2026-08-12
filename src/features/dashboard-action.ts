@@ -7,7 +7,6 @@ import {
   weeklyDaysForUser,
   weeklyLoadPercent,
   monthlyDaysForUser as rangeDaysForUser,
-  monthlyDaysForProject as rangeDaysForProject,
   weeksBetween,
   type AllocationForCalc,
   type DateRange,
@@ -28,24 +27,19 @@ async function getActiveResources(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
-async function getApprovedAllocationsInRange(start: string, end: string): Promise<AllocationForCalc[]> {
+async function getApprovedAllocationsInRange(
+  start: string,
+  end: string,
+): Promise<(AllocationForCalc & { product_id: string })[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("allocations")
-    .select("user_id, project_id, days_per_week, start_date, end_date")
+    .select("user_id, project_id, product_id, days_per_week, start_date, end_date")
     .eq("approval_status", "approved")
     .lte("start_date", end)
     .or(`end_date.is.null,end_date.gte.${start}`);
   if (error) throw new Error(error.message);
-  return (data ?? []) as AllocationForCalc[];
-}
-
-async function getProjectsByIds(ids: string[]): Promise<Project[]> {
-  if (ids.length === 0) return [];
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("projects").select("*").in("id", ids);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as Project[];
+  return (data ?? []) as (AllocationForCalc & { product_id: string })[];
 }
 
 export type ResourceLoadRow = {
@@ -81,18 +75,12 @@ export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDa
   const totalCapacity = resources.reduce((sum, p) => sum + p.capacity_days, 0);
   const totalAllocated = resourceLoad.reduce((sum, r) => sum + r.allocatedDays, 0);
 
-  const daysByProject = new Map<string, number>();
-  for (const allocation of allocations) {
-    daysByProject.set(allocation.project_id, (daysByProject.get(allocation.project_id) ?? 0) + allocation.days_per_week);
-  }
-
-  const projectIds = [...daysByProject.keys()];
-  const projects = await getProjectsByIds(projectIds);
-
   const daysByProductId = new Map<string, number>();
-  for (const project of projects) {
-    const days = daysByProject.get(project.id) ?? 0;
-    daysByProductId.set(project.product_id, (daysByProductId.get(project.product_id) ?? 0) + days);
+  for (const allocation of allocations) {
+    daysByProductId.set(
+      allocation.product_id,
+      (daysByProductId.get(allocation.product_id) ?? 0) + allocation.days_per_week,
+    );
   }
   const demandByProduct = [...daysByProductId.entries()]
     .map(([productId, days]) => ({ productId, days }))
@@ -139,13 +127,10 @@ export async function getRangeDashboard(startDateISO: string, endDateISO: string
   const totalCapacity = resources.reduce((sum, p) => sum + p.capacity_days, 0);
   const totalAllocated = resourceLoad.reduce((sum, r) => sum + r.allocatedDays, 0);
 
-  const projectIds = [...new Set(allocations.map((a) => a.project_id))];
-  const projects = await getProjectsByIds(projectIds);
-
   const daysByProductId = new Map<string, number>();
-  for (const project of projects) {
-    const days = rangeDaysForProject(allocations, project.id, range) / weeks;
-    daysByProductId.set(project.product_id, (daysByProductId.get(project.product_id) ?? 0) + days);
+  for (const allocation of allocations) {
+    const days = rangeDaysForUser([allocation], allocation.user_id, range) / weeks;
+    daysByProductId.set(allocation.product_id, (daysByProductId.get(allocation.product_id) ?? 0) + days);
   }
   const demandByProduct = [...daysByProductId.entries()]
     .map(([productId, days]) => ({ productId, days }))
@@ -182,11 +167,14 @@ export async function getInProgressProjectsForUser(userId: string, weekStartISO:
 
   const { data: projects, error: projectsError } = await supabase
     .from("projects")
-    .select("*")
+    .select("*, project_products(product_id)")
     .in("id", projectIds)
     .neq("status", "completed");
   if (projectsError) throw new Error(projectsError.message);
-  return (projects ?? []) as Project[];
+  return (projects ?? []).map((row) => {
+    const { project_products, ...project } = row as Project & { project_products: { product_id: string }[] };
+    return { ...project, product_ids: project_products.map((pp) => pp.product_id) };
+  });
 }
 
 /** Approved work items overlapping the given month, for the Dashboard's calendar view. */
@@ -195,12 +183,15 @@ export async function getProjectsForMonth(year: number, monthIndex0: number): Pr
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("projects")
-    .select("*")
+    .select("*, project_products(product_id)")
     .eq("approval_status", "approved")
     .lte("start_date", month.end)
     .or(`end_date.is.null,end_date.gte.${month.start}`);
   if (error) throw new Error(error.message);
-  return (data ?? []) as Project[];
+  return (data ?? []).map((row) => {
+    const { project_products, ...project } = row as Project & { project_products: { product_id: string }[] };
+    return { ...project, product_ids: project_products.map((pp) => pp.product_id) };
+  });
 }
 
 /** project_id -> distinct user_ids with an approved allocation overlapping the month. */
