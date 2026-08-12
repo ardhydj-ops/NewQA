@@ -151,7 +151,6 @@ export function TeamTable({ rows, isLoading, isError, canWrite, viewerRole }: Te
                   <TableCell className="text-right text-sm tabular-nums">{profile.capacity_days}</TableCell>
                   {canWrite && (
                     <TableCell className="pr-6 text-right">
-                      {(profile.role !== "head_of_qa" || viewerRole === "head_of_qa") && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="size-8" aria-label="Row actions">
@@ -159,10 +158,12 @@ export function TeamTable({ rows, isLoading, isError, canWrite, viewerRole }: Te
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setEditingProfile(profile)}>
-                            <Pencil className="size-4" />
-                            Edit
-                          </DropdownMenuItem>
+                          {(profile.role !== "head_of_qa" || viewerRole === "head_of_qa") && (
+                            <DropdownMenuItem onSelect={() => setEditingProfile(profile)}>
+                              <Pencil className="size-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onSelect={() => {
                               setResetPasswordFor(profile);
@@ -172,26 +173,27 @@ export function TeamTable({ rows, isLoading, isError, canWrite, viewerRole }: Te
                             <KeyRound className="size-4" />
                             Reset Password
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              toggleActiveMutation.mutate({ id: profile.id, isActive: !profile.is_active })
-                            }
-                          >
-                            {profile.is_active ? (
-                              <>
-                                <UserX className="size-4" />
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="size-4" />
-                                Reactivate
-                              </>
-                            )}
-                          </DropdownMenuItem>
+                          {(profile.role !== "head_of_qa" || viewerRole === "head_of_qa") && (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                toggleActiveMutation.mutate({ id: profile.id, isActive: !profile.is_active })
+                              }
+                            >
+                              {profile.is_active ? (
+                                <>
+                                  <UserX className="size-4" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="size-4" />
+                                  Reactivate
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      )}
                     </TableCell>
                   )}
                 </TableRow>

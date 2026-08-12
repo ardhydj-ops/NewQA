@@ -9,11 +9,12 @@ import { QA_LEAD_ROLES, type Profile, type ProfileRole } from "@/lib/profile";
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 /**
- * Only a Head of QA can CRUD another Head of QA account. Self-management is
- * always allowed (a Head of QA managing their own row doesn't need this
- * check — they're already covered by `actor.role === "head_of_qa"`).
- * `newRole` additionally blocks promoting some other account *into*
- * head_of_qa when the actor isn't one themselves.
+ * Only a Head of QA can create, edit, or deactivate another Head of QA
+ * account (password resets are exempt — any QA Lead may reset a Head of
+ * QA's password). Self-management is always allowed (a Head of QA managing
+ * their own row doesn't need this check — they're already covered by
+ * `actor.role === "head_of_qa"`). `newRole` additionally blocks promoting
+ * some other account *into* head_of_qa when the actor isn't one themselves.
  */
 async function assertCanManageTarget(
   admin: AdminClient,
@@ -154,11 +155,9 @@ export async function setProfileActive(id: string, isActive: boolean): Promise<{
 }
 
 export async function resetPassword(id: string): Promise<{ tempPassword: string }> {
-  const actor = await requireRole(QA_LEAD_ROLES);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
-  await assertCanManageTarget(admin, actor, id);
-
   const tempPassword = generateTempPassword();
 
   const { error } = await admin.auth.admin.updateUserById(id, { password: tempPassword });
