@@ -170,6 +170,7 @@ export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamF
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="qa_lead">QA Lead</SelectItem>
+                  <SelectItem value="head_of_qa">Head of QA</SelectItem>
                   <SelectItem value="qa_member">QA Member</SelectItem>
                   <SelectItem value="project_manager">Project Manager</SelectItem>
                 </SelectContent>

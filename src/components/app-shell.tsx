@@ -13,6 +13,7 @@ const ROLE_LABEL: Record<Profile["role"], string> = {
   qa_lead: "QA Lead",
   qa_member: "QA Member",
   project_manager: "Project Manager",
+  head_of_qa: "Head of QA",
 };
 
 export function AppShell({

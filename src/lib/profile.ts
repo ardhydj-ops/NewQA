@@ -1,4 +1,6 @@
-export type ProfileRole = "qa_lead" | "qa_member" | "project_manager";
+export type ProfileRole = "qa_lead" | "qa_member" | "project_manager" | "head_of_qa";
+
+export const QA_LEAD_ROLES: ProfileRole[] = ["qa_lead", "head_of_qa"];
 
 export type Profile = {
   id: string;

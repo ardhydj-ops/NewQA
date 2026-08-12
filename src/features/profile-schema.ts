@@ -3,7 +3,7 @@ import { z } from "zod";
 export const ProfileInput = z.object({
   name: z.string().trim().min(1, "Name is required"),
   email: z.string().trim().email("Enter a valid email"),
-  role: z.enum(["qa_lead", "qa_member", "project_manager"]),
+  role: z.enum(["qa_lead", "qa_member", "project_manager", "head_of_qa"]),
   qa_group_id: z.string().uuid().optional(),
   capacity_days: z
     .number()
