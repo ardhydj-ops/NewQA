@@ -119,9 +119,43 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
+  /** QA members eligible for a row's product: active testers in that product's owning QA Group, or everyone if the product has no group assigned. */
+  function testersForProduct(productId: string) {
+    const product = (products ?? []).find((p) => p.id === productId);
+    if (!product?.qa_group_id) return testers ?? [];
+    return (testers ?? []).filter((t) => t.qa_group_id === product.qa_group_id);
+  }
+
+  function handleRowProductChange(index: number, productId: string) {
+    const eligibleIds = new Set(testersForProduct(productId).map((t) => t.id));
+    updateRow(index, {
+      product_id: productId,
+      user_id: eligibleIds.has(rows[index].user_id) ? rows[index].user_id : "",
+    });
+  }
+
+  /** Null when row's dates are valid (within [startDate, endDate] and End >= Start); otherwise the message to show. */
+  function rowDateError(row: AllocationRow): string | null {
+    if (!row.start_date) return null;
+    if ((startDate && row.start_date < startDate) || (endDate && row.start_date > endDate)) {
+      return "Start must fall within the project's dates.";
+    }
+    if (row.end_date) {
+      if ((endDate && row.end_date > endDate) || (startDate && row.end_date < startDate)) {
+        return "End must fall within the project's dates.";
+      }
+      if (row.end_date < row.start_date) {
+        return "End must be on or after Start.";
+      }
+    }
+    return null;
+  }
+
+  const hasRowDateErrors = rows.some((row) => rowDateError(row) !== null);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Propose item</DialogTitle>
         </DialogHeader>
@@ -237,28 +271,39 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
               </Button>
             </div>
 
-            {rows.map((row, index) => (
-              <div key={index} className="grid grid-cols-14 items-end gap-2 rounded-md border p-3">
+            {rows.map((row, index) => {
+              const rowTesters = testersForProduct(row.product_id);
+              const dateError = rowDateError(row);
+              return (
+              <div key={index} className="space-y-1 rounded-md border p-3">
+                <div className="grid grid-cols-14 items-end gap-2">
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Tester</Label>
-                  <Select value={row.user_id} onValueChange={(value) => updateRow(index, { user_id: value })}>
+                  <Select
+                    value={row.user_id}
+                    onValueChange={(value) => updateRow(index, { user_id: value })}
+                    disabled={!row.product_id}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {(testers ?? []).map((tester) => (
+                      {rowTesters.map((tester) => (
                         <SelectItem key={tester.id} value={tester.id}>
                           {tester.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {row.product_id && rowTesters.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No QA in this product&apos;s group.</p>
+                  )}
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Product</Label>
                   <Select
                     value={row.product_id}
-                    onValueChange={(value) => updateRow(index, { product_id: value })}
+                    onValueChange={(value) => handleRowProductChange(index, value)}
                     disabled={productIds.length === 0}
                   >
                     <SelectTrigger className="w-full">
@@ -292,11 +337,24 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Start</Label>
-                  <Input type="date" value={row.start_date} onChange={(e) => updateRow(index, { start_date: e.target.value })} required />
+                  <Input
+                    type="date"
+                    value={row.start_date}
+                    onChange={(e) => updateRow(index, { start_date: e.target.value })}
+                    min={startDate || undefined}
+                    max={endDate || undefined}
+                    required
+                  />
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">End</Label>
-                  <Input type="date" value={row.end_date} onChange={(e) => updateRow(index, { end_date: e.target.value })} />
+                  <Input
+                    type="date"
+                    value={row.end_date}
+                    onChange={(e) => updateRow(index, { end_date: e.target.value })}
+                    min={row.start_date || startDate || undefined}
+                    max={endDate || undefined}
+                  />
                 </div>
                 <div className="col-span-2 flex justify-end">
                   <Button
@@ -310,12 +368,15 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
+                </div>
+                {dateError && <p className="text-xs text-rose-600">{dateError}</p>}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending || productIds.length === 0}>
+            <Button type="submit" disabled={mutation.isPending || productIds.length === 0 || hasRowDateErrors}>
               {mutation.isPending ? "Submitting..." : "Submit proposal"}
             </Button>
           </DialogFooter>

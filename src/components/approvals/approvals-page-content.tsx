@@ -23,6 +23,7 @@ import {
   rejectProjectProposal,
 } from "@/features/approval-action";
 import { getProducts } from "@/features/product-action";
+import { getProfiles } from "@/features/profile-action";
 import { getProjects } from "@/features/project-action";
 import { formatDate } from "@/lib/format";
 
@@ -60,6 +61,12 @@ export function ApprovalsPageContent() {
     queryFn: () => getProducts(),
   });
   const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
+
+  const { data: profiles } = useQuery({
+    queryKey: ["profiles"],
+    queryFn: () => getProfiles(),
+  });
+  const profileNameById = new Map((profiles ?? []).map((p) => [p.id, p.name]));
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["approvals"] });
@@ -186,7 +193,7 @@ export function ApprovalsPageContent() {
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-6">Project</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>QA</TableHead>
                 <TableHead className="text-right">Days/Wk</TableHead>
                 <TableHead>Timeline</TableHead>
                 <TableHead className="pr-6 text-right">Actions</TableHead>
@@ -209,7 +216,7 @@ export function ApprovalsPageContent() {
                 allocationProposals.map((allocation) => (
                   <TableRow key={allocation.id}>
                     <TableCell className="pl-6">{projectNameById.get(allocation.project_id) ?? "—"}</TableCell>
-                    <TableCell>{allocation.role_on_project}</TableCell>
+                    <TableCell>{profileNameById.get(allocation.user_id) ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{allocation.days_per_week}</TableCell>
                     <TableCell>
                       {formatDate(allocation.start_date)} – {allocation.end_date ? formatDate(allocation.end_date) : "Ongoing"}
