@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -28,6 +37,7 @@ import { createBulkAllocations, getRemainingProjectDays } from "@/features/alloc
 import { getAssignableProfiles } from "@/features/profile-action";
 import { getProducts } from "@/features/product-action";
 import { getProjects } from "@/features/project-action";
+import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/project";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
@@ -41,6 +51,7 @@ type BulkAssignDialogProps = {
 
 export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: BulkAssignDialogProps) {
   const [projectId, setProjectId] = useState(presetProject?.id ?? "");
+  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
   const [productId, setProductId] = useState(
     presetProject && presetProject.product_ids.length === 1 ? presetProject.product_ids[0] : "",
   );
@@ -126,6 +137,12 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
     setSelectedUserIds((current) => (checked ? [...current, userId] : current.filter((id) => id !== userId)));
   }
 
+  function handleProjectChange(value: string) {
+    setProjectId(value);
+    const project = (projects ?? []).find((p) => p.id === value);
+    setProductId(project && project.product_ids.length === 1 ? project.product_ids[0] : "");
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -148,25 +165,46 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
             {presetProject ? (
               <p className="text-sm font-medium">{presetProject.name}</p>
             ) : (
-              <Select
-                value={projectId}
-                onValueChange={(value) => {
-                  setProjectId(value);
-                  const project = (projects ?? []).find((p) => p.id === value);
-                  setProductId(project && project.product_ids.length === 1 ? project.product_ids[0] : "");
-                }}
-              >
-                <SelectTrigger id="bulk_project" className="w-full">
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(projects ?? []).map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="bulk_project"
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={projectPopoverOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className={cn("truncate", !selectedProject && "text-muted-foreground")}>
+                      {selectedProject ? selectedProject.name : "Select a project..."}
+                    </span>
+                    <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search projects..." />
+                    <CommandList>
+                      <CommandEmpty>No projects found.</CommandEmpty>
+                      <CommandGroup>
+                        {(projects ?? []).map((project) => (
+                          <CommandItem
+                            key={project.id}
+                            value={project.name}
+                            onSelect={() => {
+                              handleProjectChange(project.id);
+                              setProjectPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("size-4", project.id === projectId ? "opacity-100" : "opacity-0")} />
+                            {project.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             )}
             {selectedProject && (
               <p className="text-xs text-muted-foreground">
