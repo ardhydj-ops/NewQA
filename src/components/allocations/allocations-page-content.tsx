@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -73,26 +74,43 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
     const groups = (qaGroups ?? []).map((group) => ({
       id: group.id,
       name: group.name,
-      members: filteredResources.filter((r) => r.profile.qa_group_id === group.id),
+      leadUserId: group.lead_user_id,
+      members: [...filteredResources.filter((r) => r.profile.qa_group_id === group.id)].sort(
+        (a, b) => Number(b.profile.id === group.lead_user_id) - Number(a.profile.id === group.lead_user_id),
+      ),
     }));
     const unassigned = filteredResources.filter((r) => r.profile.qa_group_id === null);
-    return unassigned.length > 0 ? [...groups, { id: "unassigned", name: "Unassigned", members: unassigned }] : groups;
+    return unassigned.length > 0
+      ? [...groups, { id: "unassigned", name: "Unassigned", leadUserId: null, members: unassigned }]
+      : groups;
   }, [qaGroups, filteredResources]);
 
   const selected = resources.find((r) => r.profile.id === selectedUserId) ?? null;
 
-  function renderResourceButton(r: ResourceLoadRow) {
+  function renderResourceButton(r: ResourceLoadRow, leadUserId: string | null) {
+    const isLead = r.profile.id === leadUserId;
     return (
       <button
         key={r.profile.id}
         type="button"
         onClick={() => setSelectedUserId(r.profile.id)}
         className={`w-full rounded-md border p-3 text-left transition-colors ${
-          selectedUserId === r.profile.id ? "border-blue-600 bg-blue-50" : "border-border hover:bg-muted"
+          selectedUserId === r.profile.id
+            ? "border-blue-600 bg-blue-50"
+            : isLead
+              ? "border-violet-200 bg-violet-50 hover:bg-violet-100"
+              : "border-border hover:bg-muted"
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">{r.profile.name}</span>
+          <span className="flex items-center gap-2 text-sm font-medium">
+            {r.profile.name}
+            {isLead && (
+              <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
+                Lead
+              </Badge>
+            )}
+          </span>
           <span className="text-xs text-muted-foreground">
             {Math.round(r.allocatedDays * 2) / 2}/{r.profile.capacity_days} days
           </span>
@@ -169,7 +187,9 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
                   .map((group) => (
                     <div key={group.id} className="space-y-2">
                       <h3 className="text-xs font-medium uppercase text-muted-foreground">{group.name}</h3>
-                      <div className="space-y-2">{group.members.map(renderResourceButton)}</div>
+                      <div className="space-y-2">
+                        {group.members.map((r) => renderResourceButton(r, group.leadUserId))}
+                      </div>
                     </div>
                   ))
               )}
