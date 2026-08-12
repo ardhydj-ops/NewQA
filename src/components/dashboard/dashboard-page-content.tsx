@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -87,12 +88,22 @@ export function DashboardPageContent() {
     weekly && weekly.totalCapacity > 0 ? (weekly.totalAllocated / weekly.totalCapacity) * 100 : 0;
 
   const groupSections = (qaGroups ?? []).map((group) => {
-    const members = resourceLoad.filter((r) => r.profile.qa_group_id === group.id);
+    const members = [...resourceLoad.filter((r) => r.profile.qa_group_id === group.id)].sort(
+      (a, b) => Number(b.profile.id === group.lead_user_id) - Number(a.profile.id === group.lead_user_id),
+    );
     const totalCapacity = members.reduce((sum, r) => sum + r.profile.capacity_days, 0);
     const totalAllocated = members.reduce((sum, r) => sum + r.allocatedDays, 0);
     const avgAvailable =
       members.length > 0 ? members.reduce((sum, r) => sum + (100 - r.loadPercent), 0) / members.length : 0;
-    return { id: group.id, name: group.name, members, totalCapacity, totalAllocated, avgAvailable };
+    return {
+      id: group.id,
+      name: group.name,
+      leadUserId: group.lead_user_id,
+      members,
+      totalCapacity,
+      totalAllocated,
+      avgAvailable,
+    };
   });
   const unassignedMembers = resourceLoad.filter((r) => r.profile.qa_group_id === null);
   if (unassignedMembers.length > 0) {
@@ -103,6 +114,7 @@ export function DashboardPageContent() {
     groupSections.push({
       id: "unassigned",
       name: "Unassigned",
+      leadUserId: null,
       members: unassignedMembers,
       totalCapacity,
       totalAllocated,
@@ -180,8 +192,13 @@ export function DashboardPageContent() {
                     {roundHalf(group.totalAllocated)}/{group.totalCapacity} days · {Math.round(group.avgAvailable)}% avail
                   </h3>
                   <div className="space-y-2">
-                    {group.members.map((row) => (
-                      <div key={row.profile.id} className="flex items-center gap-3">
+                    {group.members.map((row) => {
+                      const isLead = row.profile.id === group.leadUserId;
+                      return (
+                      <div
+                        key={row.profile.id}
+                        className={`flex items-center gap-3 rounded-md ${isLead ? "bg-violet-50 px-2 py-1" : ""}`}
+                      >
                         <button
                           type="button"
                           onClick={() => setSelectedQa({ id: row.profile.id, name: row.profile.name })}
@@ -189,12 +206,18 @@ export function DashboardPageContent() {
                         >
                           {row.profile.name}
                         </button>
+                        {isLead && (
+                          <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
+                            Lead
+                          </Badge>
+                        )}
                         <span className="w-24 text-xs text-muted-foreground">
                           {roundHalf(row.allocatedDays)}/{row.profile.capacity_days} days
                         </span>
                         <LoadBar percent={row.loadPercent} className="flex-1" />
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))
