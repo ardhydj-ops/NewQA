@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CheckSquare,
   ClipboardList,
+  FileCheck,
   LayoutDashboard,
   ListChecks,
   Settings as SettingsIcon,
@@ -61,6 +62,12 @@ const ITEMS: NavItem[] = [
     label: "Approvals",
     icon: CheckSquare,
     roles: QA_LEAD_ROLES,
+  },
+  {
+    href: "/testing-approvals",
+    label: "Testing Approvals",
+    icon: FileCheck,
+    roles: ["qa_lead", "head_of_qa", "project_manager"],
   },
   {
     href: "/settings",
