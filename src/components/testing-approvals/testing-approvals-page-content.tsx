@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, X } from "lucide-react";
+import { Check, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +94,7 @@ export function TestingApprovalsPageContent({ role }: { role: ProfileRole }) {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const columnCount = isHeadOfQa ? 8 : 7;
+  const columnCount = isHeadOfQa ? 9 : 8;
 
   return (
     <div className="space-y-6">
@@ -114,6 +114,7 @@ export function TestingApprovalsPageContent({ role }: { role: ProfileRole }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-6">Project</TableHead>
+                <TableHead>Link</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Submitted By</TableHead>
                 <TableHead>Submitted At</TableHead>
@@ -140,6 +141,24 @@ export function TestingApprovalsPageContent({ role }: { role: ProfileRole }) {
                 rows.map((submission) => (
                   <TableRow key={submission.id}>
                     <TableCell className="pl-6 text-sm font-medium">{submission.project_name}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {submission.project_jira_link && (
+                          <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs" asChild>
+                            <a href={submission.project_jira_link} target="_blank" rel="noopener noreferrer">
+                              JIRA <ExternalLink className="size-3" />
+                            </a>
+                          </Button>
+                        )}
+                        {submission.project_jiva_link && (
+                          <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs" asChild>
+                            <a href={submission.project_jiva_link} target="_blank" rel="noopener noreferrer">
+                              Jiva <ExternalLink className="size-3" />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={STATUS_BADGE_CLASS[submission.status]}>
                         {STATUS_LABEL[submission.status]}

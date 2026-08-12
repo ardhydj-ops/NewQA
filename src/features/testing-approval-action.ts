@@ -10,9 +10,15 @@ import type { TestingDocumentSubmission } from "@/lib/testing-approval";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-export type TestingSubmissionWithProject = TestingDocumentSubmission & { project_name: string };
+export type TestingSubmissionWithProject = TestingDocumentSubmission & {
+  project_name: string;
+  project_jira_link: string;
+  project_jiva_link: string;
+};
 
-type SubmissionRow = TestingDocumentSubmission & { projects: { name: string } | null };
+type SubmissionRow = TestingDocumentSubmission & {
+  projects: { name: string; jira_link: string; jiva_link: string } | null;
+};
 
 export async function getTestingSubmissions(): Promise<TestingSubmissionWithProject[]> {
   await requireRole(["qa_lead", "head_of_qa", "project_manager"]);
@@ -20,13 +26,15 @@ export async function getTestingSubmissions(): Promise<TestingSubmissionWithProj
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("testing_document_submissions")
-    .select("*, projects(name)")
+    .select("*, projects(name, jira_link, jiva_link)")
     .order("submitted_at", { ascending: false });
   if (error) throw new Error(error.message);
 
   return ((data ?? []) as SubmissionRow[]).map(({ projects, ...submission }) => ({
     ...submission,
     project_name: projects?.name ?? "—",
+    project_jira_link: projects?.jira_link ?? "",
+    project_jiva_link: projects?.jiva_link ?? "",
   }));
 }
 
