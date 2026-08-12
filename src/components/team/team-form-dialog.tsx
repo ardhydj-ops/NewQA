@@ -51,9 +51,10 @@ type TeamFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialValue?: Profile;
+  viewerRole: ProfileRole;
 };
 
-export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamFormDialogProps) {
+export function TeamFormDialog({ mode, open, onOpenChange, initialValue, viewerRole }: TeamFormDialogProps) {
   const isEdit = mode === "edit";
   const [form, setForm] = useState<FormState>(() => formFromProfile(initialValue));
   const [tempPassword, setTempPassword] = useState<string | null>(null);
@@ -170,7 +171,7 @@ export function TeamFormDialog({ mode, open, onOpenChange, initialValue }: TeamF
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="qa_lead">QA Lead</SelectItem>
-                  <SelectItem value="head_of_qa">Head of QA</SelectItem>
+                  {viewerRole === "head_of_qa" && <SelectItem value="head_of_qa">Head of QA</SelectItem>}
                   <SelectItem value="qa_member">QA Member</SelectItem>
                   <SelectItem value="project_manager">Project Manager</SelectItem>
                 </SelectContent>

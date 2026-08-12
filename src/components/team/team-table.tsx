@@ -41,9 +41,10 @@ type TeamTableProps = {
   isLoading: boolean;
   isError: boolean;
   canWrite: boolean;
+  viewerRole: ProfileRole;
 };
 
-export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps) {
+export function TeamTable({ rows, isLoading, isError, canWrite, viewerRole }: TeamTableProps) {
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [resetPasswordFor, setResetPasswordFor] = useState<Profile | null>(null);
   const [newTempPassword, setNewTempPassword] = useState<string | null>(null);
@@ -150,6 +151,7 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
                   <TableCell className="text-right text-sm tabular-nums">{profile.capacity_days}</TableCell>
                   {canWrite && (
                     <TableCell className="pr-6 text-right">
+                      {(profile.role !== "head_of_qa" || viewerRole === "head_of_qa") && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="size-8" aria-label="Row actions">
@@ -189,6 +191,7 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -207,6 +210,7 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
             if (!o) setEditingProfile(null);
           }}
           initialValue={editingProfile}
+          viewerRole={viewerRole}
         />
       )}
 

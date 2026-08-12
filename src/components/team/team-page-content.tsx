@@ -34,9 +34,11 @@ export function TeamPageContent({ role }: { role: ProfileRole }) {
         )}
       </div>
 
-      <TeamTable rows={data ?? []} isLoading={isLoading} isError={isError} canWrite={canWrite} />
+      <TeamTable rows={data ?? []} isLoading={isLoading} isError={isError} canWrite={canWrite} viewerRole={role} />
 
-      {canWrite && <TeamFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} />}
+      {canWrite && (
+        <TeamFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} viewerRole={role} />
+      )}
     </div>
   );
 }
