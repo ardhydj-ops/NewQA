@@ -9,7 +9,10 @@ import { QA_LEAD_ROLES } from "@/lib/profile";
 
 export async function getQaGroups(): Promise<QaGroupRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("qa_groups").select("id, name").order("name", { ascending: true });
+  const { data, error } = await supabase
+    .from("qa_groups")
+    .select("id, name, lead_user_id")
+    .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as QaGroupRow[];
 }
@@ -28,7 +31,9 @@ export async function createQaGroup(input: unknown): Promise<{ success: true }> 
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("qa_groups").insert({ name: parsed.data.name });
+  const { error } = await admin
+    .from("qa_groups")
+    .insert({ name: parsed.data.name, lead_user_id: parsed.data.lead_user_id });
   if (error) throw friendlyError(error);
   return { success: true };
 }
@@ -42,7 +47,10 @@ export async function updateQaGroup(id: string, input: unknown): Promise<{ succe
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("qa_groups").update({ name: parsed.data.name }).eq("id", id);
+  const { error } = await admin
+    .from("qa_groups")
+    .update({ name: parsed.data.name, lead_user_id: parsed.data.lead_user_id })
+    .eq("id", id);
   if (error) throw friendlyError(error);
   return { success: true };
 }
@@ -59,6 +67,15 @@ export async function deleteQaGroup(id: string): Promise<{ success: true }> {
   if (countError) throw new Error(countError.message);
   if (count && count > 0) {
     throw new Error(`Can't delete: ${count} QA(s) are still in this group`);
+  }
+
+  const { count: productCount, error: productCountError } = await admin
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("qa_group_id", id);
+  if (productCountError) throw new Error(productCountError.message);
+  if (productCount && productCount > 0) {
+    throw new Error(`Can't delete: ${productCount} product(s) still assigned to this group`);
   }
 
   const { error } = await admin.from("qa_groups").delete().eq("id", id);
