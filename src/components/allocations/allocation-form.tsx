@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createAllocation, getAssignedQaNames, getRemainingProjectDays } from "@/features/allocation-action";
+import { getProducts } from "@/features/product-action";
 import { cn } from "@/lib/utils";
 import type { Priority, Project } from "@/lib/project";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
@@ -34,6 +35,7 @@ type AllocationFormProps = {
 export function AllocationForm({ userId, userName, capacityDays, allocatedDays, projects, role }: AllocationFormProps) {
   const [projectId, setProjectId] = useState("");
   const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
+  const [productId, setProductId] = useState("");
   const [roleOnProject, setRoleOnProject] = useState("");
   const [startDate, setStartDate] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
@@ -41,33 +43,40 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
 
   const selectedProject = projects.find((p) => p.id === projectId) ?? null;
 
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => getProducts(),
+  });
+
   const { data: remainingDays } = useQuery({
-    queryKey: ["remaining-project-days", projectId],
-    queryFn: () => getRemainingProjectDays(projectId),
-    enabled: projectId !== "",
+    queryKey: ["remaining-project-days", projectId, productId],
+    queryFn: () => getRemainingProjectDays(projectId, productId),
+    enabled: projectId !== "" && productId !== "",
   });
 
   const { data: assignedQaNames } = useQuery({
-    queryKey: ["assigned-qa-names", projectId],
-    queryFn: () => getAssignedQaNames(projectId),
-    enabled: projectId !== "",
+    queryKey: ["assigned-qa-names", projectId, productId],
+    queryFn: () => getAssignedQaNames(projectId, productId),
+    enabled: projectId !== "" && productId !== "",
   });
 
   function handleProjectChange(value: string) {
     setProjectId(value);
     const project = projects.find((p) => p.id === value);
     setStartDate(project?.start_date ?? "");
+    setProductId(project && project.product_ids.length === 1 ? project.product_ids[0] : "");
   }
 
   const remainingCapacity = Math.max(0, capacityDays - allocatedDays);
   const roundedRemainingCapacity = Math.round(remainingCapacity * 2) / 2;
-  const canSubmit = projectId !== "" && roleOnProject.trim() !== "" && startDate !== "";
+  const canSubmit = projectId !== "" && productId !== "" && roleOnProject.trim() !== "" && startDate !== "";
 
   const mutation = useMutation({
     mutationFn: () =>
       createAllocation({
         user_id: userId,
         project_id: projectId,
+        product_id: productId,
         role_on_project: roleOnProject,
         start_date: startDate,
         priority,
@@ -87,9 +96,10 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["range-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["allocations", "user", userId] });
-      queryClient.invalidateQueries({ queryKey: ["remaining-project-days", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["assigned-qa-names", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["remaining-project-days", projectId, productId] });
+      queryClient.invalidateQueries({ queryKey: ["assigned-qa-names", projectId, productId] });
       setProjectId("");
+      setProductId("");
       setRoleOnProject("");
       setStartDate("");
       setPriority("medium");
@@ -170,6 +180,26 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
           </>
         )}
       </div>
+
+      {selectedProject && selectedProject.product_ids.length > 1 && (
+        <div className="space-y-2">
+          <Label htmlFor="product">Product</Label>
+          <Select value={productId} onValueChange={setProductId}>
+            <SelectTrigger id="product" className="w-full">
+              <SelectValue placeholder="Select a product..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(products ?? [])
+                .filter((product) => selectedProject.product_ids.includes(product.id))
+                .map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="role_on_project">Role on Project</Label>

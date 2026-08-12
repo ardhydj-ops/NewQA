@@ -49,6 +49,7 @@ export function RebaselineDialog({ allocation, role, open, onOpenChange }: Rebas
         ? updateAllocation(allocation.id, {
             user_id: allocation.user_id,
             project_id: allocation.project_id,
+            product_id: allocation.product_id,
             role_on_project: allocation.role_on_project,
             days_per_week: Number(daysPerWeek),
             start_date: startDate,
