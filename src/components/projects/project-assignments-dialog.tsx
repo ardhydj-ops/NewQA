@@ -24,11 +24,17 @@ const PRIORITY_LABEL: Record<Priority, string> = {
 
 type ProjectAssignmentsDialogProps = {
   project: Project;
+  productNameById: Map<string, string>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-export function ProjectAssignmentsDialog({ project, open, onOpenChange }: ProjectAssignmentsDialogProps) {
+export function ProjectAssignmentsDialog({
+  project,
+  productNameById,
+  open,
+  onOpenChange,
+}: ProjectAssignmentsDialogProps) {
   const { data: allocations, isLoading } = useQuery({
     queryKey: ["allocations", "project", project.id],
     queryFn: () => getAllocationsForProject(project.id),
@@ -50,6 +56,7 @@ export function ProjectAssignmentsDialog({ project, open, onOpenChange }: Projec
           <TableHeader>
             <TableRow>
               <TableHead>QA</TableHead>
+              <TableHead>Product</TableHead>
               <TableHead>Role</TableHead>
               <TableHead className="text-right">Days/Wk</TableHead>
               <TableHead>Priority</TableHead>
@@ -60,13 +67,13 @@ export function ProjectAssignmentsDialog({ project, open, onOpenChange }: Projec
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : !allocations || allocations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                   No QAs assigned to this item yet.
                 </TableCell>
               </TableRow>
@@ -75,6 +82,9 @@ export function ProjectAssignmentsDialog({ project, open, onOpenChange }: Projec
                 <TableRow key={allocation.id}>
                   <TableCell className="text-sm font-medium">
                     {profileNameById.get(allocation.user_id) ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {productNameById.get(allocation.product_id) ?? "—"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{allocation.role_on_project}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
