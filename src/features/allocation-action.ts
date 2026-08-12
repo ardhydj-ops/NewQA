@@ -534,17 +534,23 @@ export async function getAllocationsForProject(projectId: string): Promise<Alloc
   return (data ?? []) as Allocation[];
 }
 
+/** Distinct QAs approved on each project — a multi-week assignment spans several allocation rows for the same person, so rows can't be counted directly. */
 export async function getApprovedAllocationCountsByProject(): Promise<Record<string, number>> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("allocations")
-    .select("project_id")
+    .select("project_id, user_id")
     .eq("approval_status", "approved");
   if (error) throw new Error(error.message);
 
-  const counts: Record<string, number> = {};
+  const userIdsByProject: Record<string, Set<string>> = {};
   for (const row of data ?? []) {
-    counts[row.project_id] = (counts[row.project_id] ?? 0) + 1;
+    (userIdsByProject[row.project_id] ??= new Set()).add(row.user_id);
+  }
+
+  const counts: Record<string, number> = {};
+  for (const [projectId, userIds] of Object.entries(userIdsByProject)) {
+    counts[projectId] = userIds.size;
   }
   return counts;
 }
