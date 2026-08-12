@@ -17,13 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,59 +26,54 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { createQaGroup, deleteQaGroup, getQaGroups, updateQaGroup } from "@/features/qa-group-action";
+import { getQaLeadCandidates } from "@/features/profile-action";
+import type { QaGroupRow } from "@/lib/qa-group";
 
-type NameEntity = { id: string; name: string };
+const NONE = "none";
 
-type NameEntityCardProps = {
-  title: string;
-  itemNoun: string;
-  queryKey: string;
-  getItems: () => Promise<NameEntity[]>;
-  createItem: (input: unknown) => Promise<{ success: true }>;
-  updateItem: (id: string, input: unknown) => Promise<{ success: true }>;
-  deleteItem: (id: string) => Promise<{ success: true }>;
-};
-
-export function NameEntityCard({
-  title,
-  itemNoun,
-  queryKey,
-  getItems,
-  createItem,
-  updateItem,
-  deleteItem,
-}: NameEntityCardProps) {
+export function QaGroupCard() {
   const [addOpen, setAddOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<NameEntity | null>(null);
-  const [deletingItem, setDeletingItem] = useState<NameEntity | null>(null);
+  const [editingItem, setEditingItem] = useState<QaGroupRow | null>(null);
+  const [deletingItem, setDeletingItem] = useState<QaGroupRow | null>(null);
   const [name, setName] = useState("");
+  const [leadUserId, setLeadUserId] = useState(NONE);
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: [queryKey],
-    queryFn: () => getItems(),
+    queryKey: ["qa-groups"],
+    queryFn: () => getQaGroups(),
   });
 
+  const { data: leadCandidates } = useQuery({
+    queryKey: ["qa-lead-candidates"],
+    queryFn: () => getQaLeadCandidates(),
+  });
+  const leadNameById = new Map((leadCandidates ?? []).map((p) => [p.id, p.name]));
+
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: [queryKey] });
+    queryClient.invalidateQueries({ queryKey: ["qa-groups"] });
   }
 
   const createMutation = useMutation({
-    mutationFn: () => createItem({ name }),
+    mutationFn: () => createQaGroup({ name, lead_user_id: leadUserId === NONE ? null : leadUserId }),
     onSuccess: () => {
-      toast.success(`${itemNoun} added`);
+      toast.success("QA Group added");
       invalidate();
       setName("");
+      setLeadUserId(NONE);
       setAddOpen(false);
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   const updateMutation = useMutation({
-    mutationFn: () => updateItem(editingItem!.id, { name }),
+    mutationFn: () =>
+      updateQaGroup(editingItem!.id, { name, lead_user_id: leadUserId === NONE ? null : leadUserId }),
     onSuccess: () => {
-      toast.success(`${itemNoun} updated`);
+      toast.success("QA Group updated");
       invalidate();
       setEditingItem(null);
     },
@@ -92,9 +81,9 @@ export function NameEntityCard({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteItem(id),
+    mutationFn: (id: string) => deleteQaGroup(id),
     onSuccess: () => {
-      toast.success(`${itemNoun} deleted`);
+      toast.success("QA Group deleted");
       invalidate();
       setDeletingItem(null);
     },
@@ -103,18 +92,20 @@ export function NameEntityCard({
 
   function openAdd() {
     setName("");
+    setLeadUserId(NONE);
     setAddOpen(true);
   }
 
-  function openEdit(item: NameEntity) {
+  function openEdit(item: QaGroupRow) {
     setName(item.name);
+    setLeadUserId(item.lead_user_id ?? NONE);
     setEditingItem(item);
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>QA Groups</CardTitle>
         <Button size="sm" variant="outline" onClick={openAdd}>
           <Plus className="size-4" />
           Add
@@ -125,26 +116,30 @@ export function NameEntityCard({
           <TableHeader>
             <TableRow>
               <TableHead className="pl-6">Name</TableHead>
+              <TableHead>Lead</TableHead>
               <TableHead className="pr-6 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={2} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : !data || data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={2} className="py-8 text-center text-sm text-muted-foreground">
-                  No {itemNoun.toLowerCase()}s yet.
+                <TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">
+                  No QA groups yet.
                 </TableCell>
               </TableRow>
             ) : (
               data.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="pl-6 text-sm font-medium">{item.name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {item.lead_user_id ? (leadNameById.get(item.lead_user_id) ?? "—") : "—"}
+                  </TableCell>
                   <TableCell className="pr-6 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -177,7 +172,7 @@ export function NameEntityCard({
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Add {itemNoun}</DialogTitle>
+            <DialogTitle>Add QA Group</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(event) => {
@@ -187,8 +182,24 @@ export function NameEntityCard({
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor={`${queryKey}-add-name`}>Name</Label>
-              <Input id={`${queryKey}-add-name`} value={name} onChange={(e) => setName(e.target.value)} required />
+              <Label htmlFor="qa-group-add-name">Name</Label>
+              <Input id="qa-group-add-name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qa-group-add-lead">Lead</Label>
+              <Select value={leadUserId} onValueChange={setLeadUserId}>
+                <SelectTrigger id="qa-group-add-lead" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No lead assigned</SelectItem>
+                  {(leadCandidates ?? []).map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={createMutation.isPending}>
@@ -207,7 +218,7 @@ export function NameEntityCard({
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Edit {itemNoun}</DialogTitle>
+            <DialogTitle>Edit QA Group</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(event) => {
@@ -217,8 +228,24 @@ export function NameEntityCard({
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor={`${queryKey}-edit-name`}>Name</Label>
-              <Input id={`${queryKey}-edit-name`} value={name} onChange={(e) => setName(e.target.value)} required />
+              <Label htmlFor="qa-group-edit-name">Name</Label>
+              <Input id="qa-group-edit-name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qa-group-edit-lead">Lead</Label>
+              <Select value={leadUserId} onValueChange={setLeadUserId}>
+                <SelectTrigger id="qa-group-edit-lead" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No lead assigned</SelectItem>
+                  {(leadCandidates ?? []).map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={updateMutation.isPending}>
@@ -237,7 +264,7 @@ export function NameEntityCard({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {itemNoun.toLowerCase()}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete QA group?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently deletes &ldquo;{deletingItem?.name}&rdquo;.
             </AlertDialogDescription>

@@ -9,10 +9,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NameEntityCard } from "@/components/settings/name-entity-card";
+import { ProductCard } from "@/components/settings/product-card";
+import { QaGroupCard } from "@/components/settings/qa-group-card";
 import { getSettings, updateSettings } from "@/features/settings-action";
-import { createProduct, deleteProduct, getProducts, updateProduct } from "@/features/product-action";
-import { createQaGroup, deleteQaGroup, getQaGroups, updateQaGroup } from "@/features/qa-group-action";
 
 export function SettingsPageContent() {
   const [maxParallelProjects, setMaxParallelProjects] = useState<string | null>(null);
@@ -93,25 +92,9 @@ export function SettingsPageContent() {
         </CardContent>
       </Card>
 
-      <NameEntityCard
-        title="QA Groups"
-        itemNoun="QA Group"
-        queryKey="qa-groups"
-        getItems={getQaGroups}
-        createItem={createQaGroup}
-        updateItem={updateQaGroup}
-        deleteItem={deleteQaGroup}
-      />
+      <QaGroupCard />
 
-      <NameEntityCard
-        title="Products"
-        itemNoun="Product"
-        queryKey="products"
-        getItems={getProducts}
-        createItem={createProduct}
-        updateItem={updateProduct}
-        deleteItem={deleteProduct}
-      />
+      <ProductCard />
     </div>
   );
 }
