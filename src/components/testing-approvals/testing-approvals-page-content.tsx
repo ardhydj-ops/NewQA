@@ -26,7 +26,7 @@ import {
 } from "@/features/testing-approval-action";
 import { getProfiles } from "@/features/profile-action";
 import { getProjects } from "@/features/project-action";
-import { formatDate } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import type { SubmissionStatus } from "@/lib/testing-approval";
 import type { ProfileRole } from "@/lib/profile";
 
@@ -149,13 +149,13 @@ export function TestingApprovalsPageContent({ role }: { role: ProfileRole }) {
                       {profileNameById.get(submission.submitted_by) ?? "—"}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(submission.submitted_at)}
+                      {formatDateTime(submission.submitted_at)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {submission.decided_by ? (profileNameById.get(submission.decided_by) ?? "—") : "—"}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {submission.decided_at ? formatDate(submission.decided_at) : "—"}
+                      {submission.decided_at ? formatDateTime(submission.decided_at) : "—"}
                     </TableCell>
                     <TableCell className={`text-sm text-muted-foreground ${isHeadOfQa ? "" : "pr-6"}`}>
                       {submission.rejection_comment ?? "—"}
