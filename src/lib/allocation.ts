@@ -4,6 +4,7 @@ export type Allocation = {
   id: string;
   user_id: string;
   project_id: string;
+  product_id: string;
   role_on_project: string;
   days_per_week: number;
   start_date: string;

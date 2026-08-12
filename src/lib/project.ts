@@ -17,7 +17,7 @@ export type Project = {
   name: string;
   start_date: string;
   end_date: string | null;
-  product_id: string;
+  product_ids: string[];
   status: ProjectStatus;
   progress_percent: number;
   item_type: ItemType;
