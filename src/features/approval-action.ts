@@ -16,15 +16,20 @@ export async function getPendingProjectProposals(): Promise<PendingProjectPropos
   const admin = createAdminClient();
   const { data: projects, error } = await admin
     .from("projects")
-    .select("*")
+    .select("*, project_products(product_id)")
     .eq("approval_status", "pending")
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
 
   const proposals: PendingProjectProposal[] = [];
-  for (const project of (projects ?? []) as Project[]) {
+  for (const row of projects ?? []) {
+    const { project_products, ...project } = row as Project & { project_products: { product_id: string }[] };
     const { data: allocations } = await admin.from("allocations").select("*").eq("project_id", project.id);
-    proposals.push({ ...project, allocations: (allocations ?? []) as Allocation[] });
+    proposals.push({
+      ...project,
+      product_ids: project_products.map((pp) => pp.product_id),
+      allocations: (allocations ?? []) as Allocation[],
+    });
   }
   return proposals;
 }
@@ -217,11 +222,14 @@ export async function getPendingProjectChanges(): Promise<Project[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("projects")
-    .select("*")
+    .select("*, project_products(product_id)")
     .not("proposed_start_date", "is", null)
     .order("change_requested_at", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []) as Project[];
+  return (data ?? []).map((row) => {
+    const { project_products, ...project } = row as Project & { project_products: { product_id: string }[] };
+    return { ...project, product_ids: project_products.map((pp) => pp.product_id) };
+  });
 }
 
 export async function approveProjectChange(id: string): Promise<{ success: true }> {
