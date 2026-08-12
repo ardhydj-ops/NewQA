@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { ProductInput } from "@/features/product-schema";
 import type { ProductRow } from "@/lib/product";
+import { QA_LEAD_ROLES } from "@/lib/profile";
 
 export async function getProducts(): Promise<ProductRow[]> {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ function friendlyError(error: { code?: string; message: string }): Error {
 }
 
 export async function createProduct(input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = ProductInput.safeParse(input);
   if (!parsed.success) {
@@ -33,7 +34,7 @@ export async function createProduct(input: unknown): Promise<{ success: true }> 
 }
 
 export async function updateProduct(id: string, input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = ProductInput.safeParse(input);
   if (!parsed.success) {
@@ -47,7 +48,7 @@ export async function updateProduct(id: string, input: unknown): Promise<{ succe
 }
 
 export async function deleteProduct(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
 

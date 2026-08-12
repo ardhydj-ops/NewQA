@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { SettingsInput } from "@/features/settings-schema";
+import { QA_LEAD_ROLES } from "@/lib/profile";
 import type { AppSettings } from "@/lib/settings";
 
 export async function getSettings(): Promise<AppSettings> {
@@ -18,7 +19,7 @@ export async function getSettings(): Promise<AppSettings> {
 }
 
 export async function updateSettings(input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = SettingsInput.safeParse(input);
   if (!parsed.success) {

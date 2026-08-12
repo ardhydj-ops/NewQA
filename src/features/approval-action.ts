@@ -5,12 +5,13 @@ import { requireRole } from "@/lib/auth";
 import { assertWithinParallelLimit } from "@/features/allocation-action";
 import { ApproveProjectProposalInput } from "@/features/project-schema";
 import type { Allocation } from "@/lib/allocation";
+import { QA_LEAD_ROLES } from "@/lib/profile";
 import type { Project } from "@/lib/project";
 
 export type PendingProjectProposal = Project & { allocations: Allocation[] };
 
 export async function getPendingProjectProposals(): Promise<PendingProjectProposal[]> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { data: projects, error } = await admin
@@ -29,7 +30,7 @@ export async function getPendingProjectProposals(): Promise<PendingProjectPropos
 }
 
 export async function getPendingAllocationProposals(): Promise<Allocation[]> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -43,7 +44,7 @@ export async function getPendingAllocationProposals(): Promise<Allocation[]> {
 }
 
 export async function getPendingAllocationChanges(): Promise<Allocation[]> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -56,7 +57,7 @@ export async function getPendingAllocationChanges(): Promise<Allocation[]> {
 }
 
 export async function approveProjectProposal(projectId: string, input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = ApproveProjectProposalInput.safeParse(input);
   if (!parsed.success) {
@@ -93,7 +94,7 @@ export async function approveProjectProposal(projectId: string, input: unknown):
 }
 
 export async function rejectProjectProposal(projectId: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { error: projectError } = await admin
@@ -113,7 +114,7 @@ export async function rejectProjectProposal(projectId: string): Promise<{ succes
 }
 
 export async function approveAllocation(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
 
@@ -139,7 +140,7 @@ export async function approveAllocation(id: string): Promise<{ success: true }> 
 }
 
 export async function rejectAllocation(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { error } = await admin.from("allocations").update({ approval_status: "rejected" }).eq("id", id);
@@ -148,7 +149,7 @@ export async function rejectAllocation(id: string): Promise<{ success: true }> {
 }
 
 export async function approveAllocationChange(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
 
@@ -191,7 +192,7 @@ export async function approveAllocationChange(id: string): Promise<{ success: tr
 }
 
 export async function rejectAllocationChange(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -211,7 +212,7 @@ export async function rejectAllocationChange(id: string): Promise<{ success: tru
 }
 
 export async function getPendingProjectChanges(): Promise<Project[]> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -224,7 +225,7 @@ export async function getPendingProjectChanges(): Promise<Project[]> {
 }
 
 export async function approveProjectChange(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
 
@@ -258,7 +259,7 @@ export async function approveProjectChange(id: string): Promise<{ success: true 
 }
 
 export async function rejectProjectChange(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { error } = await admin

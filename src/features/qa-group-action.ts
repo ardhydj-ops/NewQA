@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { QaGroupInput } from "@/features/qa-group-schema";
 import type { QaGroupRow } from "@/lib/qa-group";
+import { QA_LEAD_ROLES } from "@/lib/profile";
 
 export async function getQaGroups(): Promise<QaGroupRow[]> {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ function friendlyError(error: { code?: string; message: string }): Error {
 }
 
 export async function createQaGroup(input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = QaGroupInput.safeParse(input);
   if (!parsed.success) {
@@ -33,7 +34,7 @@ export async function createQaGroup(input: unknown): Promise<{ success: true }> 
 }
 
 export async function updateQaGroup(id: string, input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = QaGroupInput.safeParse(input);
   if (!parsed.success) {
@@ -47,7 +48,7 @@ export async function updateQaGroup(id: string, input: unknown): Promise<{ succe
 }
 
 export async function deleteQaGroup(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
 

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { ProjectChangeInput, ProjectInput, ProjectProposalInput } from "@/features/project-schema";
+import { QA_LEAD_ROLES } from "@/lib/profile";
 import type { Project, ProjectStatus, ApprovalStatus, ItemType, Priority } from "@/lib/project";
 
 export async function getProjects({
@@ -39,7 +40,7 @@ export async function getProjects({
 }
 
 export async function createProject(input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = ProjectInput.safeParse(input);
   if (!parsed.success) {
@@ -119,7 +120,7 @@ async function releaseAllocationsForCompletedProject(admin: AdminClient, project
 }
 
 export async function updateProject(id: string, input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = ProjectInput.safeParse(input);
   if (!parsed.success) {
@@ -156,7 +157,7 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
 }
 
 export async function deleteProject(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { error } = await admin.from("projects").delete().eq("id", id);

@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { ProfileInput, ProfileUpdateInput } from "@/features/profile-schema";
-import type { Profile } from "@/lib/profile";
+import { QA_LEAD_ROLES, type Profile } from "@/lib/profile";
 
 function generateTempPassword(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -37,7 +37,7 @@ export async function getAssignableProfiles(): Promise<Profile[]> {
 export async function createProfile(
   input: unknown,
 ): Promise<{ profile: Profile; tempPassword: string }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = ProfileInput.safeParse(input);
   if (!parsed.success) {
@@ -78,7 +78,7 @@ export async function createProfile(
 }
 
 export async function updateProfile(id: string, input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = ProfileUpdateInput.safeParse(input);
   if (!parsed.success) {
@@ -101,7 +101,7 @@ export async function updateProfile(id: string, input: unknown): Promise<{ succe
 }
 
 export async function setProfileActive(id: string, isActive: boolean): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { error } = await admin.from("profiles").update({ is_active: isActive }).eq("id", id);
@@ -110,7 +110,7 @@ export async function setProfileActive(id: string, isActive: boolean): Promise<{
 }
 
 export async function resetPassword(id: string): Promise<{ tempPassword: string }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const tempPassword = generateTempPassword();

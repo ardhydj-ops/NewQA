@@ -12,6 +12,7 @@ import {
 } from "@/features/allocation-schema";
 import { isoWeekRange, monthlyDaysForUser, overlappingProjectCount, weeksBetween } from "@/lib/load";
 import type { Allocation } from "@/lib/allocation";
+import { QA_LEAD_ROLES } from "@/lib/profile";
 import type { Priority } from "@/lib/project";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -219,7 +220,7 @@ export async function createAllocation(
   );
   const remainingDays = Math.max(0, project.total_working_days - committed);
 
-  const isLead = profile.role === "qa_lead";
+  const isLead = QA_LEAD_ROLES.includes(profile.role);
 
   return scheduleWeeklyAllocations({
     admin,
@@ -236,7 +237,7 @@ export async function createAllocation(
 }
 
 export async function updateAllocation(id: string, input: unknown): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const parsed = AllocationInput.safeParse(input);
   if (!parsed.success) {
@@ -272,7 +273,7 @@ export async function updateAllocation(id: string, input: unknown): Promise<{ su
 }
 
 export async function deleteAllocation(id: string): Promise<{ success: true }> {
-  await requireRole(["qa_lead"]);
+  await requireRole(QA_LEAD_ROLES);
 
   const admin = createAdminClient();
   const { error } = await admin.from("allocations").delete().eq("id", id);
@@ -395,7 +396,7 @@ export async function createBulkAllocations(input: unknown): Promise<{
     0,
   );
   const remainingDays = Math.max(0, project.total_working_days - committed);
-  const isLead = profile.role === "qa_lead";
+  const isLead = QA_LEAD_ROLES.includes(profile.role);
 
   const created: { userId: string; weeksCreated: number; placedDays: number; unplacedDays: number }[] = [];
   const failed: { userId: string; reason: string }[] = [];
