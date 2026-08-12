@@ -188,7 +188,7 @@ export async function getAllocationsForUser(userId: string): Promise<Allocation[
 export async function createAllocation(
   input: unknown,
 ): Promise<{ weeksCreated: number; placedDays: number; unplacedDays: number }> {
-  const profile = await requireRole(["qa_lead", "project_manager"]);
+  const profile = await requireRole([...QA_LEAD_ROLES, "project_manager"]);
 
   const parsed = ScheduleAllocationInput.safeParse(input);
   if (!parsed.success) {
@@ -368,7 +368,7 @@ export async function createBulkAllocations(input: unknown): Promise<{
   created: { userId: string; weeksCreated: number; placedDays: number; unplacedDays: number }[];
   failed: { userId: string; reason: string }[];
 }> {
-  const profile = await requireRole(["qa_lead", "project_manager"]);
+  const profile = await requireRole([...QA_LEAD_ROLES, "project_manager"]);
 
   const parsed = BulkAllocationInput.safeParse(input);
   if (!parsed.success) {
