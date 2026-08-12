@@ -164,7 +164,7 @@ export function ApprovalsPageContent() {
               <ProjectProposalCard
                 key={proposal.id}
                 proposal={proposal}
-                productName={productNameById.get(proposal.product_id) ?? "—"}
+                productNameById={productNameById}
                 onApprove={(totalWorkingDays) =>
                   approveProjectMutation.mutate({ id: proposal.id, totalWorkingDays })
                 }

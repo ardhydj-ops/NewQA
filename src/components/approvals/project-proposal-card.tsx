@@ -14,7 +14,7 @@ import { monthsBetween } from "@/lib/load";
 
 type ProjectProposalCardProps = {
   proposal: PendingProjectProposal;
-  productName: string;
+  productNameById: Map<string, string>;
   onApprove: (totalWorkingDays: number) => void;
   onReject: () => void;
   approving: boolean;
@@ -23,7 +23,7 @@ type ProjectProposalCardProps = {
 
 export function ProjectProposalCard({
   proposal,
-  productName,
+  productNameById,
   onApprove,
   onReject,
   approving,
@@ -43,7 +43,11 @@ export function ProjectProposalCard({
         <div>
           <div className="flex items-center gap-2">
             <span className="font-medium">{proposal.name}</span>
-            <Badge variant="secondary">{productName}</Badge>
+            {proposal.product_ids.map((productId) => (
+              <Badge key={productId} variant="secondary">
+                {productNameById.get(productId) ?? "—"}
+              </Badge>
+            ))}
           </div>
           <p className="text-sm text-muted-foreground">
             {formatDate(proposal.start_date)} – {proposal.end_date ? formatDate(proposal.end_date) : "Ongoing"}
@@ -79,6 +83,7 @@ export function ProjectProposalCard({
         <TableHeader>
           <TableRow>
             <TableHead>Role</TableHead>
+            <TableHead>Product</TableHead>
             <TableHead className="text-right">Days/Wk</TableHead>
             <TableHead>Timeline</TableHead>
           </TableRow>
@@ -87,6 +92,7 @@ export function ProjectProposalCard({
           {proposal.allocations.map((allocation) => (
             <TableRow key={allocation.id}>
               <TableCell>{allocation.role_on_project}</TableCell>
+              <TableCell>{productNameById.get(allocation.product_id) ?? "—"}</TableCell>
               <TableCell className="text-right tabular-nums">{allocation.days_per_week}</TableCell>
               <TableCell>
                 {formatDate(allocation.start_date)} –{" "}
