@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProductMultiSelect } from "@/components/products/product-multi-select";
 import { createProject, updateProject } from "@/features/project-action";
 import { getProducts } from "@/features/product-action";
 import { monthsBetween } from "@/lib/load";
@@ -31,7 +32,7 @@ type FormState = {
   item_type: ItemType;
   start_date: string;
   end_date: string;
-  product_id: string;
+  product_ids: string[];
   status: ProjectStatus;
   progress_percent: string;
   total_working_days: string;
@@ -47,7 +48,7 @@ function formFromProject(project?: Project): FormState {
         item_type: project.item_type,
         start_date: project.start_date,
         end_date: project.end_date ?? "",
-        product_id: project.product_id,
+        product_ids: project.product_ids,
         status: project.status,
         progress_percent: String(project.progress_percent),
         total_working_days: String(project.total_working_days),
@@ -60,7 +61,7 @@ function formFromProject(project?: Project): FormState {
         item_type: "project",
         start_date: "",
         end_date: "",
-        product_id: "",
+        product_ids: [],
         status: "to_do",
         progress_percent: "0",
         total_working_days: "",
@@ -104,7 +105,7 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
         item_type: form.item_type,
         start_date: form.start_date,
         end_date: form.end_date,
-        product_id: form.product_id,
+        product_ids: form.product_ids,
         status: form.status,
         progress_percent: Number(form.progress_percent),
         total_working_days: Number(form.total_working_days),
@@ -187,19 +188,12 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="product">Product</Label>
-              <Select value={form.product_id} onValueChange={(value) => setForm((f) => ({ ...f, product_id: value }))}>
-                <SelectTrigger id="product" className="w-full">
-                  <SelectValue placeholder="Select a product..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(products ?? []).map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="product">Products</Label>
+              <ProductMultiSelect
+                products={products ?? []}
+                selectedProductIds={form.product_ids}
+                onChange={(ids) => setForm((f) => ({ ...f, product_ids: ids }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
@@ -300,7 +294,7 @@ export function ProjectFormDialog({ mode, open, onOpenChange, initialValue }: Pr
           )}
 
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending || !form.product_id}>
+            <Button type="submit" disabled={mutation.isPending || form.product_ids.length === 0}>
               {mutation.isPending ? "Saving..." : isEdit ? "Save" : "Create item"}
             </Button>
           </DialogFooter>
