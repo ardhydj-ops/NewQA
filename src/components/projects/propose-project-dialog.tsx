@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProductMultiSelect } from "@/components/products/product-multi-select";
 import { getAssignableProfiles } from "@/features/profile-action";
 import { getProducts } from "@/features/product-action";
 import { proposeProject } from "@/features/project-action";
@@ -29,14 +30,22 @@ import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 
 type AllocationRow = {
   user_id: string;
+  product_id: string;
   role_on_project: string;
   days_per_week: string;
   start_date: string;
   end_date: string;
 };
 
-function emptyAllocationRow(): AllocationRow {
-  return { user_id: "", role_on_project: "", days_per_week: "1", start_date: "", end_date: "" };
+function emptyAllocationRow(productIds: string[]): AllocationRow {
+  return {
+    user_id: "",
+    product_id: productIds.length === 1 ? productIds[0] : "",
+    role_on_project: "",
+    days_per_week: "1",
+    start_date: "",
+    end_date: "",
+  };
 }
 
 type ProposeProjectDialogProps = {
@@ -49,12 +58,12 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   const [itemType, setItemType] = useState<ItemType>("project");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [productId, setProductId] = useState("");
+  const [productIds, setProductIds] = useState<string[]>([]);
   const [status, setStatus] = useState<ProjectStatus>("to_do");
   const [priority, setPriority] = useState<Priority>("medium");
   const [jiraLink, setJiraLink] = useState("https://jpnqa.atlassian.net/jira");
   const [jivaLink, setJivaLink] = useState("https://jiva.jalin.co.id/");
-  const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow()]);
+  const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow([])]);
   const queryClient = useQueryClient();
 
   const { data: testers } = useQuery({
@@ -75,7 +84,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           item_type: itemType,
           start_date: startDate,
           end_date: endDate,
-          product_id: productId,
+          product_ids: productIds,
           status,
           progress_percent: 0,
           priority,
@@ -84,6 +93,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
         },
         allocations: rows.map((row) => ({
           user_id: row.user_id,
+          product_id: row.product_id,
           role_on_project: row.role_on_project,
           days_per_week: Number(row.days_per_week),
           start_date: row.start_date,
@@ -96,9 +106,10 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
       setName("");
       setStartDate("");
       setEndDate("");
+      setProductIds([]);
       setJiraLink("https://jpnqa.atlassian.net/jira");
       setJivaLink("https://jiva.jalin.co.id/");
-      setRows([emptyAllocationRow()]);
+      setRows([emptyAllocationRow([])]);
       onOpenChange(false);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -154,19 +165,8 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="proposal_product">Product</Label>
-              <Select value={productId} onValueChange={setProductId}>
-                <SelectTrigger id="proposal_product" className="w-full">
-                  <SelectValue placeholder="Select a product..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(products ?? []).map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="proposal_product">Products</Label>
+              <ProductMultiSelect products={products ?? []} selectedProductIds={productIds} onChange={setProductIds} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="proposal_status">Status</Label>
@@ -231,15 +231,15 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           <div className="space-y-3 border-t pt-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Tester Assignments</Label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setRows((r) => [...r, emptyAllocationRow()])}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setRows((r) => [...r, emptyAllocationRow(productIds)])}>
                 <Plus className="size-4" />
                 Add tester
               </Button>
             </div>
 
             {rows.map((row, index) => (
-              <div key={index} className="grid grid-cols-12 items-end gap-2 rounded-md border p-3">
-                <div className="col-span-3 space-y-1">
+              <div key={index} className="grid grid-cols-14 items-end gap-2 rounded-md border p-3">
+                <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Tester</Label>
                   <Select value={row.user_id} onValueChange={(value) => updateRow(index, { user_id: value })}>
                     <SelectTrigger className="w-full">
@@ -254,7 +254,28 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="col-span-3 space-y-1">
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Product</Label>
+                  <Select
+                    value={row.product_id}
+                    onValueChange={(value) => updateRow(index, { product_id: value })}
+                    disabled={productIds.length === 0}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(products ?? [])
+                        .filter((product) => productIds.includes(product.id))
+                        .map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Role</Label>
                   <Input value={row.role_on_project} onChange={(e) => updateRow(index, { role_on_project: e.target.value })} required />
                 </div>
@@ -273,11 +294,11 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                   <Label className="text-xs">Start</Label>
                   <Input type="date" value={row.start_date} onChange={(e) => updateRow(index, { start_date: e.target.value })} required />
                 </div>
-                <div className="col-span-1 space-y-1">
+                <div className="col-span-2 space-y-1">
                   <Label className="text-xs">End</Label>
                   <Input type="date" value={row.end_date} onChange={(e) => updateRow(index, { end_date: e.target.value })} />
                 </div>
-                <div className="col-span-1 flex justify-end">
+                <div className="col-span-2 flex justify-end">
                   <Button
                     type="button"
                     variant="ghost"
@@ -294,7 +315,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending || !productId}>
+            <Button type="submit" disabled={mutation.isPending || productIds.length === 0}>
               {mutation.isPending ? "Submitting..." : "Submit proposal"}
             </Button>
           </DialogFooter>
