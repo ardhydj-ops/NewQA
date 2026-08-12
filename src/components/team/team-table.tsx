@@ -55,6 +55,29 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
   });
   const qaGroupNameById = new Map((qaGroups ?? []).map((g) => [g.id, g.name]));
 
+  // Head of QA first, then grouped by QA Group (in the same name order as
+  // the Settings page), each group's lead pinned first within it,
+  // unassigned/no-group profiles (including PMs) last — alphabetical by
+  // name at every tie.
+  const qaGroupOrder = new Map((qaGroups ?? []).map((g, i) => [g.id, i]));
+  function sortRank(profile: Profile) {
+    const headRank = profile.role === "head_of_qa" ? 0 : 1;
+    const group = profile.qa_group_id ? (qaGroups ?? []).find((g) => g.id === profile.qa_group_id) : undefined;
+    const groupRank = group ? (qaGroupOrder.get(group.id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+    const leadRank = group?.lead_user_id === profile.id ? 0 : 1;
+    return { headRank, groupRank, leadRank };
+  }
+  const sortedRows = [...rows].sort((a, b) => {
+    const ra = sortRank(a);
+    const rb = sortRank(b);
+    return (
+      ra.headRank - rb.headRank ||
+      ra.groupRank - rb.groupRank ||
+      ra.leadRank - rb.leadRank ||
+      a.name.localeCompare(b.name)
+    );
+  });
+
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => setProfileActive(id, isActive),
     onSuccess: () => {
@@ -114,7 +137,7 @@ export function TeamTable({ rows, isLoading, isError, canWrite }: TeamTableProps
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((profile) => (
+              sortedRows.map((profile) => (
                 <TableRow key={profile.id} className={!profile.is_active ? "opacity-50" : undefined}>
                   <TableCell className="pl-6 text-sm font-medium">{profile.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{profile.email}</TableCell>
