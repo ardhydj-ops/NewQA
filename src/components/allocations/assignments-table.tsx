@@ -59,6 +59,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
       toast.success("Assignment removed");
       queryClient.invalidateQueries({ queryKey: ["allocations", "user", userId] });
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["projects-for-month"] });
     },
     onError: (error: Error) => toast.error(error.message),
   });

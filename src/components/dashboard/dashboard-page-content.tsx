@@ -34,11 +34,13 @@ export function DashboardPageContent() {
   const { data: weekly, isLoading: weeklyLoading } = useQuery({
     queryKey: ["weekly-dashboard", weekStart],
     queryFn: () => getWeeklyDashboard(weekStart),
+    staleTime: 0,
   });
 
   const { data: monthProjects, isLoading: monthLoading } = useQuery({
     queryKey: ["projects-for-month", year, monthIndex0],
     queryFn: () => getProjectsForMonth(year, monthIndex0),
+    staleTime: 0,
   });
 
   const { data: qaGroups } = useQuery({

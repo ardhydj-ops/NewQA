@@ -65,6 +65,7 @@ export function RebaselineDialog({ allocation, role, open, onOpenChange }: Rebas
       toast.success(isLead ? "Assignment updated" : "Change proposed — pending QA Lead approval");
       queryClient.invalidateQueries({ queryKey: ["allocations", "user", allocation.user_id] });
       queryClient.invalidateQueries({ queryKey: ["weekly-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["projects-for-month"] });
       onOpenChange(false);
     },
     onError: (error: Error) => toast.error(error.message),
