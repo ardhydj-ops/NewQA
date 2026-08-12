@@ -1,17 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadBar } from "@/components/ui/load-bar";
 import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { ProductDemandPieChart } from "@/components/dashboard/product-demand-pie-chart";
+import { QaMonthFilter } from "@/components/dashboard/qa-month-filter";
 import { QaProjectsDialog } from "@/components/dashboard/qa-projects-dialog";
 import { TopUtilizedQaChart } from "@/components/dashboard/top-utilized-qa-chart";
-import { getProjectsForMonth, getWeeklyDashboard } from "@/features/dashboard-action";
+import {
+  getMonthAllocationAssignments,
+  getProjectsForMonth,
+  getWeeklyDashboard,
+} from "@/features/dashboard-action";
+import { getAssignableProfiles } from "@/features/profile-action";
 import { getProducts } from "@/features/product-action";
 import { getQaGroups } from "@/features/qa-group-action";
 import { isoWeekRange } from "@/lib/load";
@@ -30,6 +37,7 @@ export function DashboardPageContent() {
   const [year, setYear] = useState(today.getUTCFullYear());
   const [monthIndex0, setMonthIndex0] = useState(today.getUTCMonth());
   const [selectedQa, setSelectedQa] = useState<{ id: string; name: string } | null>(null);
+  const [selectedQaIds, setSelectedQaIds] = useState<string[]>([]);
 
   const { data: weekly, isLoading: weeklyLoading } = useQuery({
     queryKey: ["weekly-dashboard", weekStart],
@@ -41,6 +49,17 @@ export function DashboardPageContent() {
     queryKey: ["projects-for-month", year, monthIndex0],
     queryFn: () => getProjectsForMonth(year, monthIndex0),
     staleTime: 0,
+  });
+
+  const { data: monthAssignments } = useQuery({
+    queryKey: ["month-allocation-assignments", year, monthIndex0],
+    queryFn: () => getMonthAllocationAssignments(year, monthIndex0),
+    staleTime: 0,
+  });
+
+  const { data: assignableProfiles } = useQuery({
+    queryKey: ["assignable-profiles"],
+    queryFn: () => getAssignableProfiles(),
   });
 
   const { data: qaGroups } = useQuery({
@@ -55,6 +74,13 @@ export function DashboardPageContent() {
   const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
 
   const monthValue = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
+
+  const visibleMonthProjects = useMemo(() => {
+    if (selectedQaIds.length === 0) return monthProjects ?? [];
+    return (monthProjects ?? []).filter((p) =>
+      (monthAssignments?.[p.id] ?? []).some((userId) => selectedQaIds.includes(userId)),
+    );
+  }, [monthProjects, monthAssignments, selectedQaIds]);
 
   const resourceLoad = weekly?.resourceLoad ?? [];
   const allocatedPercent =
@@ -204,21 +230,33 @@ export function DashboardPageContent() {
         </Card>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="month-picker" className="text-xs text-muted-foreground">
-          Month
-        </Label>
-        <Input
-          id="month-picker"
-          type="month"
-          value={monthValue}
-          onChange={(e) => {
-            const [y, m] = e.target.value.split("-").map(Number);
-            setYear(y);
-            setMonthIndex0(m - 1);
-          }}
-          className="w-40"
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label htmlFor="month-picker" className="text-xs text-muted-foreground">
+            Month
+          </Label>
+          <Input
+            id="month-picker"
+            type="month"
+            value={monthValue}
+            onChange={(e) => {
+              const [y, m] = e.target.value.split("-").map(Number);
+              setYear(y);
+              setMonthIndex0(m - 1);
+            }}
+            className="w-40"
+          />
+        </div>
+        <QaMonthFilter
+          profiles={assignableProfiles ?? []}
+          selectedQaIds={selectedQaIds}
+          onChange={setSelectedQaIds}
         />
+        {selectedQaIds.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setSelectedQaIds([])}>
+            Clear
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -226,8 +264,12 @@ export function DashboardPageContent() {
           <h2 className="mb-4 text-lg font-semibold">Ongoing Projects This Month</h2>
           {monthLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : visibleMonthProjects.length === 0 && selectedQaIds.length > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No ongoing projects for the selected QA(s) this month.
+            </p>
           ) : (
-            <MonthCalendar year={year} monthIndex0={monthIndex0} projects={monthProjects ?? []} />
+            <MonthCalendar year={year} monthIndex0={monthIndex0} projects={visibleMonthProjects} />
           )}
         </CardContent>
       </Card>
