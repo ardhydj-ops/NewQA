@@ -7,7 +7,7 @@ export const ProjectInput = z.object({
   item_type: z.enum(["project", "support_testing", "problem_incident", "service_request"]),
   start_date: isoDate,
   end_date: isoDate,
-  product_id: z.string().uuid("Select a product"),
+  product_ids: z.array(z.string().uuid()).min(1, "Select at least one product"),
   status: z.enum(["to_do", "ready_sit", "sit", "ready_uat", "uat", "completed"]),
   progress_percent: z.number().int().min(0).max(100),
   total_working_days: z
@@ -28,6 +28,7 @@ export type ProjectProposalProjectInput = z.infer<typeof ProjectProposalProjectI
 
 export const ProposedAllocationInput = z.object({
   user_id: z.string().uuid("Select a tester"),
+  product_id: z.string().uuid("Select a product"),
   role_on_project: z.string().trim().min(1, "Role on project is required"),
   days_per_week: z
     .number()
