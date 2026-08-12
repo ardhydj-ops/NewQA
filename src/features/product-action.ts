@@ -53,8 +53,8 @@ export async function deleteProduct(id: string): Promise<{ success: true }> {
   const admin = createAdminClient();
 
   const { count, error: countError } = await admin
-    .from("projects")
-    .select("id", { count: "exact", head: true })
+    .from("project_products")
+    .select("project_id", { count: "exact", head: true })
     .eq("product_id", id);
   if (countError) throw new Error(countError.message);
   if (count && count > 0) {
