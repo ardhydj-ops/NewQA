@@ -11,7 +11,7 @@ export async function getSettings(): Promise<AppSettings> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("app_settings")
-    .select("max_parallel_projects")
+    .select("max_parallel_projects, email_notifications_enabled")
     .eq("id", true)
     .single();
   if (error) throw new Error(error.message);
@@ -29,7 +29,10 @@ export async function updateSettings(input: unknown): Promise<{ success: true }>
   const admin = createAdminClient();
   const { error } = await admin
     .from("app_settings")
-    .update({ max_parallel_projects: parsed.data.max_parallel_projects })
+    .update({
+      max_parallel_projects: parsed.data.max_parallel_projects,
+      email_notifications_enabled: parsed.data.email_notifications_enabled,
+    })
     .eq("id", true);
 
   if (error) throw new Error(error.message);

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NameEntityCard } from "@/components/settings/name-entity-card";
@@ -15,6 +16,7 @@ import { createQaGroup, deleteQaGroup, getQaGroups, updateQaGroup } from "@/feat
 
 export function SettingsPageContent() {
   const [maxParallelProjects, setMaxParallelProjects] = useState<string | null>(null);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState<boolean | null>(null);
   const queryClient = useQueryClient();
 
   const { data } = useQuery({
@@ -25,9 +27,16 @@ export function SettingsPageContent() {
   if (data && maxParallelProjects === null) {
     setMaxParallelProjects(String(data.max_parallel_projects));
   }
+  if (data && emailNotificationsEnabled === null) {
+    setEmailNotificationsEnabled(data.email_notifications_enabled);
+  }
 
   const mutation = useMutation({
-    mutationFn: () => updateSettings({ max_parallel_projects: Number(maxParallelProjects) }),
+    mutationFn: () =>
+      updateSettings({
+        max_parallel_projects: Number(maxParallelProjects),
+        email_notifications_enabled: emailNotificationsEnabled ?? false,
+      }),
     onSuccess: () => {
       toast.success("Settings updated");
       queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -66,7 +75,18 @@ export function SettingsPageContent() {
                 A QA can&apos;t be assigned to more than this many overlapping projects/activities at once.
               </p>
             </div>
-            <Button type="submit" disabled={mutation.isPending || maxParallelProjects === null}>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="email_notifications"
+                checked={emailNotificationsEnabled ?? false}
+                onCheckedChange={(checked) => setEmailNotificationsEnabled(checked === true)}
+              />
+              <Label htmlFor="email_notifications">Email Notifications</Label>
+            </div>
+            <Button
+              type="submit"
+              disabled={mutation.isPending || maxParallelProjects === null || emailNotificationsEnabled === null}
+            >
               {mutation.isPending ? "Saving..." : "Save"}
             </Button>
           </form>
