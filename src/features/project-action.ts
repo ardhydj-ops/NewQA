@@ -22,6 +22,7 @@ async function setProjectProducts(admin: AdminClient, projectId: string, product
 export async function getProjects({
   status = "",
   product_id = "",
+  qa_group_id = "",
   search = "",
   item_type = "",
   priority = "",
@@ -29,6 +30,7 @@ export async function getProjects({
 }: {
   status?: ProjectStatus | "";
   product_id?: string;
+  qa_group_id?: string;
   search?: string;
   item_type?: ItemType | "";
   priority?: Priority | "";
@@ -45,16 +47,41 @@ export async function getProjects({
   if (priority) query = query.eq("priority", priority);
   if (approvalStatus) query = query.eq("approval_status", approvalStatus);
 
+  let projectIdFilter: string[] | null = null;
+
   if (product_id) {
     const { data: matches, error: matchError } = await supabase
       .from("project_products")
       .select("project_id")
       .eq("product_id", product_id);
     if (matchError) throw new Error(matchError.message);
-    const projectIds = (matches ?? []).map((m) => m.project_id);
-    if (projectIds.length === 0) return [];
-    query = query.in("id", projectIds);
+    projectIdFilter = [...new Set((matches ?? []).map((m) => m.project_id))];
+    if (projectIdFilter.length === 0) return [];
   }
+
+  if (qa_group_id) {
+    const { data: groupProducts, error: gpError } = await supabase
+      .from("products")
+      .select("id")
+      .eq("qa_group_id", qa_group_id);
+    if (gpError) throw new Error(gpError.message);
+    const productIds = (groupProducts ?? []).map((p) => p.id);
+    if (productIds.length === 0) return [];
+
+    const { data: matches, error: matchError } = await supabase
+      .from("project_products")
+      .select("project_id")
+      .in("product_id", productIds);
+    if (matchError) throw new Error(matchError.message);
+    const groupProjectIds = new Set((matches ?? []).map((m) => m.project_id));
+
+    projectIdFilter = projectIdFilter
+      ? projectIdFilter.filter((id) => groupProjectIds.has(id))
+      : [...groupProjectIds];
+    if (projectIdFilter.length === 0) return [];
+  }
+
+  if (projectIdFilter) query = query.in("id", projectIdFilter);
 
   const { data, error } = await query.order("start_date", { ascending: false });
   if (error) throw new Error(error.message);
