@@ -9,7 +9,10 @@ import { QA_LEAD_ROLES } from "@/lib/profile";
 
 export async function getProducts(): Promise<ProductRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("products").select("id, name").order("name", { ascending: true });
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, name, qa_group_id")
+    .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as ProductRow[];
 }
@@ -28,7 +31,9 @@ export async function createProduct(input: unknown): Promise<{ success: true }> 
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("products").insert({ name: parsed.data.name });
+  const { error } = await admin
+    .from("products")
+    .insert({ name: parsed.data.name, qa_group_id: parsed.data.qa_group_id });
   if (error) throw friendlyError(error);
   return { success: true };
 }
@@ -42,7 +47,10 @@ export async function updateProduct(id: string, input: unknown): Promise<{ succe
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("products").update({ name: parsed.data.name }).eq("id", id);
+  const { error } = await admin
+    .from("products")
+    .update({ name: parsed.data.name, qa_group_id: parsed.data.qa_group_id })
+    .eq("id", id);
   if (error) throw friendlyError(error);
   return { success: true };
 }
