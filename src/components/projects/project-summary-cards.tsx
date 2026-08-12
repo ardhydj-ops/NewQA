@@ -77,7 +77,9 @@ export function ProjectSummaryCards({ rows, assignmentCounts, productNameById }:
 
   const productCounts = new Map<string, number>();
   for (const project of rows) {
-    productCounts.set(project.product_id, (productCounts.get(project.product_id) ?? 0) + 1);
+    for (const productId of project.product_ids) {
+      productCounts.set(productId, (productCounts.get(productId) ?? 0) + 1);
+    }
   }
   const productCountRows = [...productCounts.entries()]
     .map(([productId, count]) => ({ productId, name: productNameById.get(productId) ?? "—", count }))

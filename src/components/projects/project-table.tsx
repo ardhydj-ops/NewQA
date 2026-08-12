@@ -276,7 +276,13 @@ export function ProjectTable({
                     </Button>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{productNameById.get(project.product_id) ?? "—"}</Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {project.product_ids.map((productId) => (
+                        <Badge key={productId} variant="secondary">
+                          {productNameById.get(productId) ?? "—"}
+                        </Badge>
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <ProgressBar percent={project.progress_percent} />
@@ -423,6 +429,7 @@ export function ProjectTable({
         <ProjectAssignmentsDialog
           key={viewingProject.id}
           project={viewingProject}
+          productNameById={productNameById}
           open
           onOpenChange={(o) => {
             if (!o) setViewingProject(null);

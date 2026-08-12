@@ -102,11 +102,11 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
         return a.name.localeCompare(b.name) * direction;
       case "assigned":
         return ((assignmentCounts?.[a.id] ?? 0) - (assignmentCounts?.[b.id] ?? 0)) * direction;
-      case "product":
-        return (
-          (productNameById.get(a.product_id) ?? "").localeCompare(productNameById.get(b.product_id) ?? "") *
-          direction
-        );
+      case "product": {
+        const namesA = a.product_ids.map((id) => productNameById.get(id) ?? "").sort().join(", ");
+        const namesB = b.product_ids.map((id) => productNameById.get(id) ?? "").sort().join(", ");
+        return namesA.localeCompare(namesB) * direction;
+      }
       case "progress":
         return (a.progress_percent - b.progress_percent) * direction;
       case "start_date":
