@@ -3,5 +3,5 @@ import { getCurrentProfile } from "@/lib/auth";
 
 export default async function TeamPage() {
   const profile = await getCurrentProfile();
-  return <TeamPageContent role={profile!.role} />;
+  return <TeamPageContent role={profile!.role} viewerId={profile!.id} />;
 }

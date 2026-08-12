@@ -10,7 +10,7 @@ import { TeamTable } from "@/components/team/team-table";
 import { getProfiles } from "@/features/profile-action";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
-export function TeamPageContent({ role }: { role: ProfileRole }) {
+export function TeamPageContent({ role, viewerId }: { role: ProfileRole; viewerId: string }) {
   const [createOpen, setCreateOpen] = useState(false);
   const canWrite = QA_LEAD_ROLES.includes(role);
 
@@ -34,7 +34,14 @@ export function TeamPageContent({ role }: { role: ProfileRole }) {
         )}
       </div>
 
-      <TeamTable rows={data ?? []} isLoading={isLoading} isError={isError} canWrite={canWrite} viewerRole={role} />
+      <TeamTable
+        rows={data ?? []}
+        isLoading={isLoading}
+        isError={isError}
+        canWrite={canWrite}
+        viewerRole={role}
+        viewerId={viewerId}
+      />
 
       {canWrite && (
         <TeamFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} viewerRole={role} />

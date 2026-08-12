@@ -42,9 +42,10 @@ type TeamTableProps = {
   isError: boolean;
   canWrite: boolean;
   viewerRole: ProfileRole;
+  viewerId: string;
 };
 
-export function TeamTable({ rows, isLoading, isError, canWrite, viewerRole }: TeamTableProps) {
+export function TeamTable({ rows, isLoading, isError, canWrite, viewerRole, viewerId }: TeamTableProps) {
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [resetPasswordFor, setResetPasswordFor] = useState<Profile | null>(null);
   const [newTempPassword, setNewTempPassword] = useState<string | null>(null);
@@ -173,25 +174,26 @@ export function TeamTable({ rows, isLoading, isError, canWrite, viewerRole }: Te
                             <KeyRound className="size-4" />
                             Reset Password
                           </DropdownMenuItem>
-                          {(profile.role !== "head_of_qa" || viewerRole === "head_of_qa") && (
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                toggleActiveMutation.mutate({ id: profile.id, isActive: !profile.is_active })
-                              }
-                            >
-                              {profile.is_active ? (
-                                <>
-                                  <UserX className="size-4" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <UserCheck className="size-4" />
-                                  Reactivate
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                          )}
+                          {profile.id !== viewerId &&
+                            (profile.role !== "head_of_qa" || viewerRole === "head_of_qa") && (
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  toggleActiveMutation.mutate({ id: profile.id, isActive: !profile.is_active })
+                                }
+                              >
+                                {profile.is_active ? (
+                                  <>
+                                    <UserX className="size-4" />
+                                    Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserCheck className="size-4" />
+                                    Reactivate
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

@@ -146,6 +146,10 @@ export async function updateProfile(id: string, input: unknown): Promise<{ succe
 export async function setProfileActive(id: string, isActive: boolean): Promise<{ success: true }> {
   const actor = await requireRole(QA_LEAD_ROLES);
 
+  if (actor.id === id) {
+    throw new Error("You cannot deactivate or reactivate your own account");
+  }
+
   const admin = createAdminClient();
   await assertCanManageTarget(admin, actor, id);
 
