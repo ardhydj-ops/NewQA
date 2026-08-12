@@ -7,6 +7,18 @@ import { ProjectChangeInput, ProjectInput, ProjectProposalInput } from "@/featur
 import { QA_LEAD_ROLES } from "@/lib/profile";
 import type { Project, ProjectStatus, ApprovalStatus, ItemType, Priority } from "@/lib/project";
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function setProjectProducts(admin: AdminClient, projectId: string, productIds: string[]): Promise<void> {
+  const { error: deleteError } = await admin.from("project_products").delete().eq("project_id", projectId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  const { error: insertError } = await admin
+    .from("project_products")
+    .insert(productIds.map((productId) => ({ project_id: projectId, product_id: productId })));
+  if (insertError) throw new Error(insertError.message);
+}
+
 export async function getProjects({
   status = "",
   product_id = "",
@@ -24,19 +36,32 @@ export async function getProjects({
 } = {}): Promise<Project[]> {
   const supabase = await createClient();
 
-  let query = supabase.from("projects").select("*");
+  let query = supabase.from("projects").select("*, project_products(product_id)");
 
   const term = search.trim();
   if (term) query = query.ilike("name", `%${term}%`);
   if (status) query = query.eq("status", status);
-  if (product_id) query = query.eq("product_id", product_id);
   if (item_type) query = query.eq("item_type", item_type);
   if (priority) query = query.eq("priority", priority);
   if (approvalStatus) query = query.eq("approval_status", approvalStatus);
 
+  if (product_id) {
+    const { data: matches, error: matchError } = await supabase
+      .from("project_products")
+      .select("project_id")
+      .eq("product_id", product_id);
+    if (matchError) throw new Error(matchError.message);
+    const projectIds = (matches ?? []).map((m) => m.project_id);
+    if (projectIds.length === 0) return [];
+    query = query.in("id", projectIds);
+  }
+
   const { data, error } = await query.order("start_date", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as Project[];
+  return (data ?? []).map((row) => {
+    const { project_products, ...project } = row as Project & { project_products: { product_id: string }[] };
+    return { ...project, product_ids: project_products.map((pp) => pp.product_id) };
+  });
 }
 
 export async function createProject(input: unknown): Promise<{ success: true }> {
@@ -48,26 +73,29 @@ export async function createProject(input: unknown): Promise<{ success: true }> 
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("projects").insert({
-    name: parsed.data.name,
-    item_type: parsed.data.item_type,
-    start_date: parsed.data.start_date,
-    end_date: parsed.data.end_date,
-    product_id: parsed.data.product_id,
-    status: parsed.data.status,
-    progress_percent: parsed.data.status === "completed" ? 100 : parsed.data.progress_percent,
-    total_working_days: parsed.data.total_working_days,
-    priority: parsed.data.priority,
-    jira_link: parsed.data.jira_link,
-    jiva_link: parsed.data.jiva_link,
-    approval_status: "approved",
-  });
+  const { data: project, error } = await admin
+    .from("projects")
+    .insert({
+      name: parsed.data.name,
+      item_type: parsed.data.item_type,
+      start_date: parsed.data.start_date,
+      end_date: parsed.data.end_date,
+      status: parsed.data.status,
+      progress_percent: parsed.data.status === "completed" ? 100 : parsed.data.progress_percent,
+      total_working_days: parsed.data.total_working_days,
+      priority: parsed.data.priority,
+      jira_link: parsed.data.jira_link,
+      jiva_link: parsed.data.jiva_link,
+      approval_status: "approved",
+    })
+    .select("id")
+    .single();
 
-  if (error) throw new Error(error.message);
+  if (error || !project) throw new Error(error?.message ?? "Failed to create item");
+
+  await setProjectProducts(admin, project.id, parsed.data.product_ids);
   return { success: true };
 }
-
-type AdminClient = ReturnType<typeof createAdminClient>;
 
 /**
  * When a work item is marked Completed: reject any pending allocation
@@ -130,6 +158,36 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
   const admin = createAdminClient();
   const becomingCompleted = parsed.data.status === "completed";
 
+  const { data: currentProducts, error: currentError } = await admin
+    .from("project_products")
+    .select("product_id")
+    .eq("project_id", id);
+  if (currentError) throw new Error(currentError.message);
+
+  const removedProductIds = (currentProducts ?? [])
+    .map((p) => p.product_id)
+    .filter((productId) => !parsed.data.product_ids.includes(productId));
+
+  if (removedProductIds.length > 0) {
+    const { data: stillAssigned, error: assignedError } = await admin
+      .from("allocations")
+      .select("product_id")
+      .eq("project_id", id)
+      .eq("approval_status", "approved")
+      .in("product_id", removedProductIds);
+    if (assignedError) throw new Error(assignedError.message);
+    if (stillAssigned && stillAssigned.length > 0) {
+      const { data: product } = await admin
+        .from("products")
+        .select("name")
+        .eq("id", stillAssigned[0].product_id)
+        .single();
+      throw new Error(
+        `Can't remove ${product?.name ?? "this product"}: ${stillAssigned.length} assignment(s) still reference it.`,
+      );
+    }
+  }
+
   const { error } = await admin
     .from("projects")
     .update({
@@ -137,7 +195,6 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
       item_type: parsed.data.item_type,
       start_date: parsed.data.start_date,
       end_date: parsed.data.end_date,
-      product_id: parsed.data.product_id,
       status: parsed.data.status,
       progress_percent: becomingCompleted ? 100 : parsed.data.progress_percent,
       total_working_days: parsed.data.total_working_days,
@@ -148,6 +205,8 @@ export async function updateProject(id: string, input: unknown): Promise<{ succe
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  await setProjectProducts(admin, id, parsed.data.product_ids);
 
   if (becomingCompleted) {
     await releaseAllocationsForCompletedProject(admin, id);
@@ -182,7 +241,6 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
       item_type: parsed.data.project.item_type,
       start_date: parsed.data.project.start_date,
       end_date: parsed.data.project.end_date,
-      product_id: parsed.data.project.product_id,
       status: parsed.data.project.status,
       progress_percent: parsed.data.project.progress_percent,
       total_working_days: parsed.data.project.total_working_days ?? 0,
@@ -199,10 +257,19 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
     throw new Error(projectError?.message ?? "Failed to submit proposal");
   }
 
+  const { error: productsError } = await admin
+    .from("project_products")
+    .insert(parsed.data.project.product_ids.map((productId) => ({ project_id: project.id, product_id: productId })));
+  if (productsError) {
+    await admin.from("projects").delete().eq("id", project.id);
+    throw new Error(productsError.message);
+  }
+
   const { error: allocationsError } = await admin.from("allocations").insert(
     parsed.data.allocations.map((allocation) => ({
       user_id: allocation.user_id,
       project_id: project.id,
+      product_id: allocation.product_id,
       role_on_project: allocation.role_on_project,
       days_per_week: allocation.days_per_week,
       start_date: allocation.start_date,
