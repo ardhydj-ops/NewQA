@@ -15,6 +15,7 @@ import { weekdaysBetween } from "@/lib/load";
 type ProjectProposalCardProps = {
   proposal: PendingProjectProposal;
   productNameById: Map<string, string>;
+  profileNameById: Map<string, string>;
   onApprove: (totalWorkingDays: number) => void;
   onReject: () => void;
   approving: boolean;
@@ -24,6 +25,7 @@ type ProjectProposalCardProps = {
 export function ProjectProposalCard({
   proposal,
   productNameById,
+  profileNameById,
   onApprove,
   onReject,
   approving,
@@ -80,6 +82,7 @@ export function ProjectProposalCard({
       <Table className="mt-4">
         <TableHeader>
           <TableRow>
+            <TableHead>QA Name</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Product</TableHead>
             <TableHead className="text-right">Days/Wk</TableHead>
@@ -89,6 +92,7 @@ export function ProjectProposalCard({
         <TableBody>
           {proposal.allocations.map((allocation) => (
             <TableRow key={allocation.id}>
+              <TableCell>{profileNameById.get(allocation.user_id) ?? "—"}</TableCell>
               <TableCell>{allocation.role_on_project}</TableCell>
               <TableCell>{productNameById.get(allocation.product_id) ?? "—"}</TableCell>
               <TableCell className="text-right tabular-nums">{allocation.days_per_week}</TableCell>

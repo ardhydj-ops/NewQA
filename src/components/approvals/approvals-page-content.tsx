@@ -172,6 +172,7 @@ export function ApprovalsPageContent() {
                 key={proposal.id}
                 proposal={proposal}
                 productNameById={productNameById}
+                profileNameById={profileNameById}
                 onApprove={(totalWorkingDays) =>
                   approveProjectMutation.mutate({ id: proposal.id, totalWorkingDays })
                 }
