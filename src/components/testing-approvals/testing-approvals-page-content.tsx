@@ -70,8 +70,9 @@ export function TestingApprovalsPageContent({ role }: { role: ProfileRole }) {
 
   const rows = submissions ?? [];
   const pendingProjectIds = new Set(rows.filter((s) => s.status === "pending").map((s) => s.project_id));
+  const approvedProjectIds = new Set(rows.filter((s) => s.status === "approved").map((s) => s.project_id));
   const submittableProjects = (approvedProjects ?? []).filter(
-    (p) => p.progress_percent === 100 && !pendingProjectIds.has(p.id),
+    (p) => p.progress_percent === 100 && !pendingProjectIds.has(p.id) && !approvedProjectIds.has(p.id),
   );
 
   const submitMutation = useMutation({

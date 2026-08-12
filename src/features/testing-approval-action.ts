@@ -56,14 +56,24 @@ export async function submitTestingDocument(projectId: string): Promise<{ succes
     throw new Error("Progress must reach 100% before submitting for approval");
   }
 
-  const { count, error: pendingError } = await admin
+  const { count: pendingCount, error: pendingError } = await admin
     .from("testing_document_submissions")
     .select("id", { count: "exact", head: true })
     .eq("project_id", projectId)
     .eq("status", "pending");
   if (pendingError) throw new Error(pendingError.message);
-  if (count && count > 0) {
+  if (pendingCount && pendingCount > 0) {
     throw new Error("This item already has a pending submission");
+  }
+
+  const { count: approvedCount, error: approvedError } = await admin
+    .from("testing_document_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId)
+    .eq("status", "approved");
+  if (approvedError) throw new Error(approvedError.message);
+  if (approvedCount && approvedCount > 0) {
+    throw new Error("This item's testing document has already been approved");
   }
 
   const { error } = await admin
