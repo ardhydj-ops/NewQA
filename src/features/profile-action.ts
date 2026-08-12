@@ -34,6 +34,18 @@ export async function getAssignableProfiles(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
+export async function getQaLeadCandidates(): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("is_active", true)
+    .in("role", QA_LEAD_ROLES)
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Profile[];
+}
+
 export async function createProfile(
   input: unknown,
 ): Promise<{ profile: Profile; tempPassword: string }> {
