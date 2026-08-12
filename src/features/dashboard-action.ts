@@ -202,3 +202,26 @@ export async function getProjectsForMonth(year: number, monthIndex0: number): Pr
   if (error) throw new Error(error.message);
   return (data ?? []) as Project[];
 }
+
+/** project_id -> distinct user_ids with an approved allocation overlapping the month. */
+export async function getMonthAllocationAssignments(
+  year: number,
+  monthIndex0: number,
+): Promise<Record<string, string[]>> {
+  const month = monthRange(year, monthIndex0);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("allocations")
+    .select("project_id, user_id")
+    .eq("approval_status", "approved")
+    .lte("start_date", month.end)
+    .or(`end_date.is.null,end_date.gte.${month.start}`);
+  if (error) throw new Error(error.message);
+
+  const map: Record<string, string[]> = {};
+  for (const row of data ?? []) {
+    const users = (map[row.project_id] ??= []);
+    if (!users.includes(row.user_id)) users.push(row.user_id);
+  }
+  return map;
+}
