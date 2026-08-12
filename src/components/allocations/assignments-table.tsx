@@ -39,11 +39,19 @@ type AssignmentsTableProps = {
   userId: string;
   userName: string;
   projects: Project[];
+  productNameById: Map<string, string>;
   role: ProfileRole;
   currentProfileId: string;
 };
 
-export function AssignmentsTable({ userId, userName, projects, role, currentProfileId }: AssignmentsTableProps) {
+export function AssignmentsTable({
+  userId,
+  userName,
+  projects,
+  productNameById,
+  role,
+  currentProfileId,
+}: AssignmentsTableProps) {
   const [rebaseliningAllocation, setRebaseliningAllocation] = useState<Allocation | null>(null);
   const queryClient = useQueryClient();
   const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
@@ -90,6 +98,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
           <TableHeader>
             <TableRow>
               <TableHead className="pl-6">Project Name</TableHead>
+              <TableHead>Product</TableHead>
               <TableHead>Role</TableHead>
               <TableHead className="text-right">Days/Wk</TableHead>
               <TableHead>Priority</TableHead>
@@ -100,13 +109,13 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                   No assignments yet.
                 </TableCell>
               </TableRow>
@@ -130,6 +139,9 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
                         Pending Change
                       </Badge>
                     )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {productNameById.get(allocation.product_id) ?? "—"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{allocation.role_on_project}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
@@ -187,7 +199,7 @@ export function AssignmentsTable({ userId, userName, projects, role, currentProf
           {rows.length > 0 && (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={2} className="pl-6">Total Allocated</TableCell>
+                <TableCell colSpan={3} className="pl-6">Total Allocated</TableCell>
                 <TableCell className="text-right tabular-nums">{Math.round(totalAllocated * 2) / 2} days</TableCell>
                 <TableCell colSpan={3} />
               </TableRow>

@@ -12,6 +12,7 @@ import { AllocationForm } from "@/components/allocations/allocation-form";
 import { AssignmentsTable } from "@/components/allocations/assignments-table";
 import { BulkAssignDialog } from "@/components/allocations/bulk-assign-dialog";
 import { getRangeDashboard, type ResourceLoadRow } from "@/features/dashboard-action";
+import { getProducts } from "@/features/product-action";
 import { getProjects } from "@/features/project-action";
 import { getQaGroups } from "@/features/qa-group-action";
 import { isoWeekRange } from "@/lib/load";
@@ -54,6 +55,12 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
     queryFn: () => getProjects(),
   });
   const approvedProjects = (allProjects ?? []).filter((p) => p.approval_status === "approved");
+
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => getProducts(),
+  });
+  const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
 
   const resources = dashboard?.resourceLoad ?? [];
   const filteredResources = useMemo(
@@ -199,6 +206,7 @@ export function AllocationsPageContent({ role, currentProfileId }: { role: Profi
           userId={selected.profile.id}
           userName={selected.profile.name}
           projects={allProjects ?? []}
+          productNameById={productNameById}
           role={role}
           currentProfileId={currentProfileId}
         />
