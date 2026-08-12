@@ -20,6 +20,7 @@ import { ProposeProjectDialog } from "@/components/projects/propose-project-dial
 import { getApprovedAllocationCountsByProject } from "@/features/allocation-action";
 import { getProducts } from "@/features/product-action";
 import { getProjects } from "@/features/project-action";
+import { getQaGroups } from "@/features/qa-group-action";
 import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
 
@@ -45,10 +46,19 @@ const PRIORITY_ORDER: Priority[] = ["low", "medium", "high", "critical"];
 
 const STATUS_ORDER: ProjectStatus[] = ["to_do", "ready_sit", "sit", "ready_uat", "uat", "completed"];
 
-export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileRole; currentProfileId: string }) {
+export function ProjectsPageContent({
+  role,
+  currentProfileId,
+  qaGroupId,
+}: {
+  role: ProfileRole;
+  currentProfileId: string;
+  qaGroupId: string | null;
+}) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | "">("");
   const [productFilter, setProductFilter] = useState("");
+  const [qaGroupFilter, setQaGroupFilter] = useState(() => (role === "qa_lead" ? (qaGroupId ?? "") : ""));
   const [typeFilter, setTypeFilter] = useState<ItemType | "">("");
   const [priorityFilter, setPriorityFilter] = useState<Priority | "">("");
   const [sortKey, setSortKey] = useState<ProjectSortKey>("assigned");
@@ -60,13 +70,21 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
   const { data, isLoading, isError } = useQuery({
     queryKey: [
       "projects",
-      { search, status: statusFilter, product_id: productFilter, item_type: typeFilter, priority: priorityFilter },
+      {
+        search,
+        status: statusFilter,
+        product_id: productFilter,
+        qa_group_id: qaGroupFilter,
+        item_type: typeFilter,
+        priority: priorityFilter,
+      },
     ],
     queryFn: () =>
       getProjects({
         search,
         status: statusFilter,
         product_id: productFilter,
+        qa_group_id: qaGroupFilter,
         item_type: typeFilter,
         priority: priorityFilter,
       }),
@@ -77,6 +95,11 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
     queryFn: () => getProducts(),
   });
   const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
+
+  const { data: qaGroups } = useQuery({
+    queryKey: ["qa-groups"],
+    queryFn: () => getQaGroups(),
+  });
 
   const { data: assignmentCounts } = useQuery({
     queryKey: ["allocation-counts", "approved"],
@@ -203,6 +226,25 @@ export function ProjectsPageContent({ role, currentProfileId }: { role: ProfileR
             {(products ?? []).map((product) => (
               <SelectItem key={product.id} value={product.id}>
                 {product.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={qaGroupFilter || "all"}
+          onValueChange={(v) => {
+            setQaGroupFilter(v === "all" ? "" : v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="QA Group" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All QA Groups</SelectItem>
+            {(qaGroups ?? []).map((group) => (
+              <SelectItem key={group.id} value={group.id}>
+                {group.name}
               </SelectItem>
             ))}
           </SelectContent>
