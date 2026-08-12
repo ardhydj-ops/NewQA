@@ -4,10 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import {
   isoWeekRange,
   monthRange,
+  weeklyAveragedDaysForUser,
   weeklyDaysForUser,
   weeklyLoadPercent,
-  monthlyDaysForUser as rangeDaysForUser,
-  weeksBetween,
   type AllocationForCalc,
   type DateRange,
 } from "@/lib/load";
@@ -98,10 +97,12 @@ export async function getWeeklyDashboard(weekStartISO: string): Promise<WeeklyDa
 /**
  * Same shape as `getWeeklyDashboard`, but for an arbitrary [start, end] range
  * instead of one fixed ISO week — `allocatedDays` per QA (and `days` per
- * product in `demandByProduct`) is the range's total prorated days divided
- * by how many weeks the range spans, i.e. an average days/week figure, so the
- * existing 80%/100% load thresholds and days/wk-labeled UI keep meaning
- * unchanged no matter how wide a range is picked.
+ * product in `demandByProduct`) is a per-week average computed by walking
+ * the range week by week and summing each week's full days_per_week for any
+ * overlapping allocation (see `weeklyAveragedDaysForUser`), not a
+ * continuous day-fraction proration — so a person assigned "5 days/week"
+ * reads as using 5 days the moment that assignment is active in a week,
+ * regardless of which day of the week it started or ended.
  */
 export async function getRangeDashboard(startDateISO: string, endDateISO: string): Promise<WeeklyDashboard> {
   if (startDateISO > endDateISO) {
@@ -109,14 +110,13 @@ export async function getRangeDashboard(startDateISO: string, endDateISO: string
   }
 
   const range: DateRange = { start: startDateISO, end: endDateISO };
-  const weeks = weeksBetween(startDateISO, endDateISO);
   const [resources, allocations] = await Promise.all([
     getActiveResources(),
     getApprovedAllocationsInRange(range.start, range.end),
   ]);
 
   const resourceLoad: ResourceLoadRow[] = resources.map((profile) => {
-    const allocatedDays = rangeDaysForUser(allocations, profile.id, range) / weeks;
+    const allocatedDays = weeklyAveragedDaysForUser(allocations, profile.id, range);
     return {
       profile,
       allocatedDays,
@@ -129,7 +129,7 @@ export async function getRangeDashboard(startDateISO: string, endDateISO: string
 
   const daysByProductId = new Map<string, number>();
   for (const allocation of allocations) {
-    const days = rangeDaysForUser([allocation], allocation.user_id, range) / weeks;
+    const days = weeklyAveragedDaysForUser([allocation], allocation.user_id, range);
     daysByProductId.set(allocation.product_id, (daysByProductId.get(allocation.product_id) ?? 0) + days);
   }
   const demandByProduct = [...daysByProductId.entries()]

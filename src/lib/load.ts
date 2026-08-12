@@ -60,6 +60,32 @@ export function weeklyDaysForUser(
     .reduce((sum, a) => sum + a.days_per_week, 0);
 }
 
+/**
+ * Average days/week over an arbitrary [range.start, range.end], walking
+ * week by week and summing each week's full days_per_week for any
+ * allocation overlapping that week (via weeklyDaysForUser) — no partial-week
+ * proration. Generalizes weeklyDaysForUser's exact-week semantics to a
+ * multi-week range, so a person's displayed load matches the flat rate
+ * they were actually assigned, not a day-count fraction of it.
+ */
+export function weeklyAveragedDaysForUser(
+  allocations: AllocationForCalc[],
+  userId: string,
+  range: DateRange,
+): number {
+  let total = 0;
+  let weekCount = 0;
+  let week = isoWeekRange(toUTCDate(range.start));
+  while (week.start <= range.end) {
+    total += weeklyDaysForUser(allocations, userId, week);
+    weekCount++;
+    const nextMonday = new Date(`${week.start}T00:00:00Z`);
+    nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
+    week = isoWeekRange(nextMonday);
+  }
+  return weekCount > 0 ? total / weekCount : 0;
+}
+
 export function weeklyLoadPercent(allocatedDays: number, capacityDays: number): number {
   if (capacityDays <= 0) return 0;
   return (allocatedDays / capacityDays) * 100;
