@@ -36,7 +36,7 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
   const [projectId, setProjectId] = useState("");
   const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
   const [productId, setProductId] = useState("");
-  const [roleOnProject, setRoleOnProject] = useState("");
+  const [roleOnProject, setRoleOnProject] = useState("QA Tester");
   const [startDate, setStartDate] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const queryClient = useQueryClient();
@@ -100,7 +100,7 @@ export function AllocationForm({ userId, userName, capacityDays, allocatedDays, 
       queryClient.invalidateQueries({ queryKey: ["assigned-qa-names", projectId, productId] });
       setProjectId("");
       setProductId("");
-      setRoleOnProject("");
+      setRoleOnProject("QA Tester");
       setStartDate("");
       setPriority("medium");
     },

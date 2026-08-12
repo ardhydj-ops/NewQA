@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -43,8 +44,9 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
   const [productId, setProductId] = useState(
     presetProject && presetProject.product_ids.length === 1 ? presetProject.product_ids[0] : "",
   );
-  const [roleOnProject, setRoleOnProject] = useState("");
+  const [roleOnProject, setRoleOnProject] = useState("QA Tester");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [testerSearch, setTesterSearch] = useState("");
   const queryClient = useQueryClient();
 
   const { data: projects } = useQuery({
@@ -64,6 +66,10 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
   });
 
   const selectedProject = presetProject ?? (projects ?? []).find((p) => p.id === projectId) ?? null;
+
+  const filteredTesters = (testers ?? []).filter((tester) =>
+    tester.name.toLowerCase().includes(testerSearch.trim().toLowerCase()),
+  );
 
   const { data: remainingDays } = useQuery({
     queryKey: ["remaining-project-days", projectId, productId],
@@ -108,8 +114,9 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
       queryClient.invalidateQueries({ queryKey: ["allocation-counts", "approved"] });
       setProjectId(presetProject?.id ?? "");
       setProductId(presetProject && presetProject.product_ids.length === 1 ? presetProject.product_ids[0] : "");
-      setRoleOnProject("");
+      setRoleOnProject("QA Tester");
       setSelectedUserIds([]);
+      setTesterSearch("");
       onOpenChange(false);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -195,17 +202,31 @@ export function BulkAssignDialog({ role, open, onOpenChange, presetProject }: Bu
           </div>
 
           <div className="space-y-2">
-            <Label>QA Members</Label>
+            <Label htmlFor="bulk_tester_search">QA Members</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="bulk_tester_search"
+                value={testerSearch}
+                onChange={(e) => setTesterSearch(e.target.value)}
+                placeholder="Search QA members..."
+                className="pl-9"
+              />
+            </div>
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
-              {(testers ?? []).map((tester) => (
-                <label key={tester.id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={selectedUserIds.includes(tester.id)}
-                    onCheckedChange={(checked) => toggleUser(tester.id, checked === true)}
-                  />
-                  {tester.name}
-                </label>
-              ))}
+              {filteredTesters.length === 0 ? (
+                <p className="py-2 text-center text-sm text-muted-foreground">No QA members found.</p>
+              ) : (
+                filteredTesters.map((tester) => (
+                  <label key={tester.id} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={selectedUserIds.includes(tester.id)}
+                      onCheckedChange={(checked) => toggleUser(tester.id, checked === true)}
+                    />
+                    {tester.name}
+                  </label>
+                ))
+              )}
             </div>
           </div>
 

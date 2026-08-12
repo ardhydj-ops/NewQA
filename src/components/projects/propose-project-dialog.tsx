@@ -41,7 +41,7 @@ function emptyAllocationRow(productIds: string[]): AllocationRow {
   return {
     user_id: "",
     product_id: productIds.length === 1 ? productIds[0] : "",
-    role_on_project: "",
+    role_on_project: "QA Tester",
     days_per_week: "1",
     start_date: "",
     end_date: "",
