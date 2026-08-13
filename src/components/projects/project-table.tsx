@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -134,6 +134,7 @@ type ProjectTableProps = {
   sortKey: ProjectSortKey;
   sortDirection: "asc" | "desc";
   onSortChange: (key: ProjectSortKey) => void;
+  highlightedProjectId?: string | null;
 };
 
 export function ProjectTable({
@@ -147,6 +148,7 @@ export function ProjectTable({
   sortKey,
   sortDirection,
   onSortChange,
+  highlightedProjectId,
 }: ProjectTableProps) {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
@@ -154,6 +156,14 @@ export function ProjectTable({
   const [assigningProject, setAssigningProject] = useState<Project | null>(null);
   const [rebaseliningProject, setRebaseliningProject] = useState<Project | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!highlightedProjectId) return;
+    document.getElementById(`project-row-${highlightedProjectId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [highlightedProjectId, rows]);
 
   const canEdit = QA_LEAD_ROLES.includes(role);
   const canPropose = role === "project_manager";
@@ -256,8 +266,19 @@ export function ProjectTable({
             ) : (
               rows.map((project) => {
                 const needsAttention = (assignmentCounts[project.id] ?? 0) === 0 && project.progress_percent === 0;
+                const isHighlighted = project.id === highlightedProjectId;
                 return (
-                <TableRow key={project.id} className={needsAttention ? "bg-red-50" : undefined}>
+                <TableRow
+                  key={project.id}
+                  id={`project-row-${project.id}`}
+                  className={
+                    isHighlighted
+                      ? "bg-blue-50 outline outline-2 -outline-offset-2 outline-blue-400"
+                      : needsAttention
+                        ? "bg-red-50"
+                        : undefined
+                  }
+                >
                   <TableCell className="w-50 pl-6 text-sm font-medium whitespace-normal break-words">
                     {project.name}
                     {project.approval_status === "pending" && (

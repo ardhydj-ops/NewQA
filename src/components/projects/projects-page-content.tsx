@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ProjectAssignmentsDialog } from "@/components/projects/project-assignments-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectSummaryCards } from "@/components/projects/project-summary-cards";
 import { ProjectTable, type ProjectSortKey } from "@/components/projects/project-table";
@@ -72,6 +71,7 @@ export function ProjectsPageContent({
   const [sharedProjectId, setSharedProjectId] = useState<string | null>(() =>
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("project"),
   );
+  const [highlightedProjectId, setHighlightedProjectId] = useState<string | null>(null);
   const router = useRouter();
 
   const {
@@ -84,18 +84,25 @@ export function ProjectsPageContent({
     enabled: !!sharedProjectId,
   });
 
-  function closeSharedProject() {
+  useEffect(() => {
+    if (!sharedProjectId || !sharedProjectFetched) return;
+
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time sync: land on the shared project (via search/filters) once its fetch resolves */
+    if (sharedProjectIsError || !sharedProject) {
+      toast.error("That shared project link could not be found");
+    } else {
+      setSearch(sharedProject.name);
+      setStatusFilter("");
+      setProductFilter("");
+      setQaGroupFilter("");
+      setTypeFilter("");
+      setPriorityFilter("");
+      setPage(1);
+      setHighlightedProjectId(sharedProject.id);
+    }
     setSharedProjectId(null);
     router.replace("/projects");
-  }
-
-  useEffect(() => {
-    if (sharedProjectId && sharedProjectFetched && (sharedProjectIsError || !sharedProject)) {
-      toast.error("That shared project link could not be found");
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time cleanup: clear a broken shared-project link once its fetch resolves
-      setSharedProjectId(null);
-      router.replace("/projects");
-    }
+    /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedProjectId, sharedProjectFetched, sharedProjectIsError, sharedProject]);
 
@@ -219,6 +226,7 @@ export function ProjectsPageContent({
           onChange={(e) => {
             setSearch(e.target.value);
             setPage(1);
+            setHighlightedProjectId(null);
           }}
           placeholder="Search..."
           className="max-w-64"
@@ -228,6 +236,7 @@ export function ProjectsPageContent({
           onValueChange={(v) => {
             setStatusFilter(v === "all" ? "" : (v as ProjectStatus));
             setPage(1);
+            setHighlightedProjectId(null);
           }}
         >
           <SelectTrigger className="w-44">
@@ -248,6 +257,7 @@ export function ProjectsPageContent({
           onValueChange={(v) => {
             setProductFilter(v === "all" ? "" : v);
             setPage(1);
+            setHighlightedProjectId(null);
           }}
         >
           <SelectTrigger className="w-40">
@@ -267,6 +277,7 @@ export function ProjectsPageContent({
           onValueChange={(v) => {
             setQaGroupFilter(v === "all" ? "" : v);
             setPage(1);
+            setHighlightedProjectId(null);
           }}
         >
           <SelectTrigger className="w-40">
@@ -286,6 +297,7 @@ export function ProjectsPageContent({
           onValueChange={(v) => {
             setTypeFilter(v === "all" ? "" : (v as ItemType));
             setPage(1);
+            setHighlightedProjectId(null);
           }}
         >
           <SelectTrigger className="w-44">
@@ -305,6 +317,7 @@ export function ProjectsPageContent({
           onValueChange={(v) => {
             setPriorityFilter(v === "all" ? "" : (v as Priority));
             setPage(1);
+            setHighlightedProjectId(null);
           }}
         >
           <SelectTrigger className="w-40">
@@ -332,6 +345,7 @@ export function ProjectsPageContent({
         sortKey={sortKey}
         sortDirection={sortDirection}
         onSortChange={handleSortChange}
+        highlightedProjectId={highlightedProjectId}
       />
 
       {!isLoading && sortedRows.length > 0 && (
@@ -368,18 +382,6 @@ export function ProjectsPageContent({
 
       {QA_LEAD_ROLES.includes(role) && <ProjectFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} />}
       {role === "project_manager" && <ProposeProjectDialog open={proposeOpen} onOpenChange={setProposeOpen} />}
-
-      {sharedProject && (
-        <ProjectAssignmentsDialog
-          key={sharedProject.id}
-          project={sharedProject}
-          productNameById={productNameById}
-          open
-          onOpenChange={(o) => {
-            if (!o) closeSharedProject();
-          }}
-        />
-      )}
     </div>
   );
 }
