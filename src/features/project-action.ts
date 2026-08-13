@@ -91,6 +91,20 @@ export async function getProjects({
   });
 }
 
+export async function getProjectById(id: string): Promise<Project | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*, project_products(product_id)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const { project_products, ...project } = data as Project & { project_products: { product_id: string }[] };
+  return { ...project, product_ids: project_products.map((pp) => pp.product_id) };
+}
+
 export async function createProject(input: unknown): Promise<{ success: true }> {
   await requireRole(QA_LEAD_ROLES);
 

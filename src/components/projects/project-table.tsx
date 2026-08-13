@@ -10,6 +10,7 @@ import {
   ExternalLink,
   MoreHorizontal,
   Pencil,
+  Share2,
   Trash2,
   UserPlus,
   Undo2,
@@ -178,6 +179,16 @@ export function ProjectTable({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  async function handleShare(project: Project) {
+    const url = `${window.location.origin}/projects?project=${project.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Share link copied to clipboard");
+    } catch {
+      toast.error("Couldn't copy the link");
+    }
+  }
+
   return (
     <Card>
       <CardContent className="px-0">
@@ -304,7 +315,7 @@ export function ProjectTable({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       {project.jira_link && (
                         <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs" asChild>
                           <a href={project.jira_link} target="_blank" rel="noopener noreferrer">
@@ -319,6 +330,15 @@ export function ProjectTable({
                           </a>
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto gap-1 p-0 text-xs"
+                        onClick={() => handleShare(project)}
+                        aria-label="Copy share link"
+                      >
+                        <Share2 className="size-3" /> Share
+                      </Button>
                     </div>
                   </TableCell>
                   {showActions && (

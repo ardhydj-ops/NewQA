@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProjectAssignmentsDialog } from "@/components/projects/project-assignments-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectSummaryCards } from "@/components/projects/project-summary-cards";
 import { ProjectTable, type ProjectSortKey } from "@/components/projects/project-table";
 import { ProposeProjectDialog } from "@/components/projects/propose-project-dialog";
 import { getApprovedAllocationCountsByProject } from "@/features/allocation-action";
 import { getProducts } from "@/features/product-action";
-import { getProjects } from "@/features/project-action";
+import { getProjectById, getProjects } from "@/features/project-action";
 import { getQaGroups } from "@/features/qa-group-action";
 import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
@@ -66,6 +69,35 @@ export function ProjectsPageContent({
   const [createOpen, setCreateOpen] = useState(false);
   const [proposeOpen, setProposeOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [sharedProjectId, setSharedProjectId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("project"),
+  );
+  const router = useRouter();
+
+  const {
+    data: sharedProject,
+    isFetched: sharedProjectFetched,
+    isError: sharedProjectIsError,
+  } = useQuery({
+    queryKey: ["project", sharedProjectId],
+    queryFn: () => getProjectById(sharedProjectId!),
+    enabled: !!sharedProjectId,
+  });
+
+  function closeSharedProject() {
+    setSharedProjectId(null);
+    router.replace("/projects");
+  }
+
+  useEffect(() => {
+    if (sharedProjectId && sharedProjectFetched && (sharedProjectIsError || !sharedProject)) {
+      toast.error("That shared project link could not be found");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time cleanup: clear a broken shared-project link once its fetch resolves
+      setSharedProjectId(null);
+      router.replace("/projects");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedProjectId, sharedProjectFetched, sharedProjectIsError, sharedProject]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: [
@@ -336,6 +368,18 @@ export function ProjectsPageContent({
 
       {QA_LEAD_ROLES.includes(role) && <ProjectFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} />}
       {role === "project_manager" && <ProposeProjectDialog open={proposeOpen} onOpenChange={setProposeOpen} />}
+
+      {sharedProject && (
+        <ProjectAssignmentsDialog
+          key={sharedProject.id}
+          project={sharedProject}
+          productNameById={productNameById}
+          open
+          onOpenChange={(o) => {
+            if (!o) closeSharedProject();
+          }}
+        />
+      )}
     </div>
   );
 }
