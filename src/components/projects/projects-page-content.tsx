@@ -136,11 +136,13 @@ export function ProjectsPageContent({
     queryFn: () => getProducts(),
   });
   const productNameById = new Map((products ?? []).map((p) => [p.id, p.name]));
+  const productQaGroupId = new Map((products ?? []).map((p) => [p.id, p.qa_group_id]));
 
   const { data: qaGroups } = useQuery({
     queryKey: ["qa-groups"],
     queryFn: () => getQaGroups(),
   });
+  const qaGroupNameById = new Map((qaGroups ?? []).map((g) => [g.id, g.name]));
 
   const { data: assignmentCounts } = useQuery({
     queryKey: ["allocation-counts", "approved"],
@@ -226,7 +228,13 @@ export function ProjectsPageContent({
         )}
       </div>
 
-      <ProjectSummaryCards rows={allRows} assignmentCounts={assignmentCounts ?? {}} productNameById={productNameById} />
+      <ProjectSummaryCards
+        rows={allRows}
+        assignmentCounts={assignmentCounts ?? {}}
+        productNameById={productNameById}
+        productQaGroupId={productQaGroupId}
+        qaGroupNameById={qaGroupNameById}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

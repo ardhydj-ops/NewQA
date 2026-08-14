@@ -45,7 +45,14 @@ export async function getProjects({
   if (status) query = query.eq("status", status);
   if (item_type) query = query.eq("item_type", item_type);
   if (priority) query = query.eq("priority", priority);
-  if (approvalStatus) query = query.eq("approval_status", approvalStatus);
+  // Rejected proposals drop out of every default listing once decided —
+  // callers that explicitly want them (e.g. a future audit view) can still
+  // pass approvalStatus: "rejected".
+  if (approvalStatus) {
+    query = query.eq("approval_status", approvalStatus);
+  } else {
+    query = query.neq("approval_status", "rejected");
+  }
 
   let projectIdFilter: string[] | null = null;
 

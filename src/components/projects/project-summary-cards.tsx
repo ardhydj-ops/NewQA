@@ -53,11 +53,43 @@ type ProjectSummaryCardsProps = {
   rows: Project[];
   assignmentCounts: Record<string, number>;
   productNameById: Map<string, string>;
+  productQaGroupId: Map<string, string | null>;
+  qaGroupNameById: Map<string, string>;
 };
 
-export function ProjectSummaryCards({ rows, assignmentCounts, productNameById }: ProjectSummaryCardsProps) {
+export function ProjectSummaryCards({
+  rows,
+  assignmentCounts,
+  productNameById,
+  productQaGroupId,
+  qaGroupNameById,
+}: ProjectSummaryCardsProps) {
   const totalProjects = rows.length;
-  const withoutQa = rows.filter((p) => (assignmentCounts[p.id] ?? 0) === 0).length;
+  const withoutQaRows = rows.filter((p) => (assignmentCounts[p.id] ?? 0) === 0);
+  const withoutQa = withoutQaRows.length;
+
+  const withoutQaGroupCounts = new Map<string, number>();
+  for (const project of withoutQaRows) {
+    const groupIds = new Set(
+      project.product_ids
+        .map((productId) => productQaGroupId.get(productId))
+        .filter((id): id is string => Boolean(id)),
+    );
+    if (groupIds.size === 0) {
+      withoutQaGroupCounts.set("unassigned", (withoutQaGroupCounts.get("unassigned") ?? 0) + 1);
+    } else {
+      for (const groupId of groupIds) {
+        withoutQaGroupCounts.set(groupId, (withoutQaGroupCounts.get(groupId) ?? 0) + 1);
+      }
+    }
+  }
+  const withoutQaGroupRows = [...withoutQaGroupCounts.entries()]
+    .map(([groupId, count]) => ({
+      groupId,
+      name: groupId === "unassigned" ? "No Product / QA Group" : (qaGroupNameById.get(groupId) ?? "—"),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count);
 
   const progressSlices: Slice[] = PROGRESS_BUCKETS.map((bucket) => ({
     id: bucket.label,
@@ -104,6 +136,16 @@ export function ProjectSummaryCards({ rows, assignmentCounts, productNameById }:
           <CardContent className="space-y-1 pt-6">
             <p className="text-xs font-medium uppercase text-muted-foreground">Without QA Assignment</p>
             <p className="text-3xl font-bold tabular-nums">{withoutQa}</p>
+            {withoutQaGroupRows.length > 0 && (
+              <ul className="space-y-0.5 pt-2">
+                {withoutQaGroupRows.map((g) => (
+                  <li key={g.groupId} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-muted-foreground">{g.name}</span>
+                    <span className="font-medium tabular-nums">{g.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
