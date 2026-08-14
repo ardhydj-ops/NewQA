@@ -63,6 +63,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   const [priority, setPriority] = useState<Priority>("medium");
   const [jiraLink, setJiraLink] = useState("https://jpnqa.atlassian.net/jira");
   const [jivaLink, setJivaLink] = useState("https://jiva.jalin.co.id/");
+  const [supportRequestFormLink, setSupportRequestFormLink] = useState("");
   const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow([])]);
   const queryClient = useQueryClient();
 
@@ -90,6 +91,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           priority,
           jira_link: jiraLink,
           jiva_link: jivaLink,
+          support_request_form_link: itemType === "support_testing" ? supportRequestFormLink : undefined,
         },
         allocations: rows.map((row) => ({
           user_id: row.user_id,
@@ -109,6 +111,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
       setProductIds([]);
       setJiraLink("https://jpnqa.atlassian.net/jira");
       setJivaLink("https://jiva.jalin.co.id/");
+      setSupportRequestFormLink("");
       setRows([emptyAllocationRow([])]);
       onOpenChange(false);
     },
@@ -262,6 +265,23 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
             </div>
           </div>
 
+          {itemType === "support_testing" && (
+            <div className="space-y-2">
+              <Label htmlFor="proposal_support_form">Support Request Form (SharePoint Link)</Label>
+              <Input
+                id="proposal_support_form"
+                type="url"
+                placeholder="https://...sharepoint.com/..."
+                value={supportRequestFormLink}
+                onChange={(e) => setSupportRequestFormLink(e.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload the Support Request Form to SharePoint yourself, then paste the link here.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-3 border-t pt-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Tester Assignments</Label>
@@ -376,7 +396,15 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending || productIds.length === 0 || hasRowDateErrors}>
+            <Button
+              type="submit"
+              disabled={
+                mutation.isPending ||
+                productIds.length === 0 ||
+                hasRowDateErrors ||
+                (itemType === "support_testing" && !supportRequestFormLink.trim())
+              }
+            >
               {mutation.isPending ? "Submitting..." : "Submit proposal"}
             </Button>
           </DialogFooter>

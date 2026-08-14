@@ -295,6 +295,7 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
       priority: parsed.data.project.priority,
       jira_link: parsed.data.project.jira_link,
       jiva_link: parsed.data.project.jiva_link,
+      support_request_form_link: parsed.data.project.support_request_form_link ?? null,
       approval_status: "pending",
       proposed_by: profile.id,
     })

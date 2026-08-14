@@ -17,13 +17,25 @@ export const ProjectInput = z.object({
   priority: z.enum(["low", "medium", "high", "critical"]),
   jira_link: z.string().trim().url("Enter a valid JIRA URL"),
   jiva_link: z.string().trim().url("Enter a valid Jiva URL"),
+  support_request_form_link: z.string().trim().url("Enter a valid link").optional(),
 });
 export type ProjectInput = z.infer<typeof ProjectInput>;
 
 // PM proposals never set Total Working Days — the QA Lead fills it in at
 // approval time (see ApproveProjectProposalInput below). Every other field,
 // including jira_link/jiva_link, stays required on the proposal path too.
-const ProjectProposalProjectInput = ProjectInput.partial({ total_working_days: true });
+// A Support Testing proposal additionally requires a
+// support_request_form_link (a SharePoint link the PM pastes in — there's
+// no automated upload path) — every other item type leaves it unset.
+const ProjectProposalProjectInput = ProjectInput.partial({ total_working_days: true }).superRefine((data, ctx) => {
+  if (data.item_type === "support_testing" && !data.support_request_form_link) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["support_request_form_link"],
+      message: "Support Request Form link is required for Support Testing items",
+    });
+  }
+});
 export type ProjectProposalProjectInput = z.infer<typeof ProjectProposalProjectInput>;
 
 export const ProposedAllocationInput = z.object({

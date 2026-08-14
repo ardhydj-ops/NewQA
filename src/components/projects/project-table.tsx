@@ -351,6 +351,13 @@ export function ProjectTable({
                           </a>
                         </Button>
                       )}
+                      {project.support_request_form_link && (
+                        <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 text-xs" asChild>
+                          <a href={project.support_request_form_link} target="_blank" rel="noopener noreferrer">
+                            Support Form <ExternalLink className="size-3" />
+                          </a>
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

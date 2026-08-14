@@ -25,6 +25,7 @@ export type Project = {
   priority: Priority;
   jira_link: string;
   jiva_link: string;
+  support_request_form_link: string | null;
   approval_status: ApprovalStatus;
   proposed_by: string | null;
   proposed_start_date: string | null;
