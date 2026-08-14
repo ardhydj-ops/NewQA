@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImportScheduleDialog } from "@/components/projects/import-schedule-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectSummaryCards } from "@/components/projects/project-summary-cards";
 import { ProjectTable, type ProjectSortKey } from "@/components/projects/project-table";
@@ -67,6 +68,7 @@ export function ProjectsPageContent({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [createOpen, setCreateOpen] = useState(false);
   const [proposeOpen, setProposeOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [sharedProjectId, setSharedProjectId] = useState<string | null>(() =>
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("project"),
@@ -214,6 +216,12 @@ export function ProjectsPageContent({
           <Button onClick={() => setProposeOpen(true)}>
             <Plus className="size-4" />
             Propose Item
+          </Button>
+        )}
+        {(QA_LEAD_ROLES.includes(role) || role === "project_manager") && (
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="size-4" />
+            Import Schedule
           </Button>
         )}
       </div>
@@ -382,6 +390,7 @@ export function ProjectsPageContent({
 
       {QA_LEAD_ROLES.includes(role) && <ProjectFormDialog mode="create" open={createOpen} onOpenChange={setCreateOpen} />}
       {role === "project_manager" && <ProposeProjectDialog open={proposeOpen} onOpenChange={setProposeOpen} />}
+      <ImportScheduleDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
