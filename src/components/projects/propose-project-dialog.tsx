@@ -23,29 +23,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProductMultiSelect } from "@/components/products/product-multi-select";
-import { getAssignableProfiles } from "@/features/profile-action";
+import { getQaLeadCandidates } from "@/features/profile-action";
 import { getProducts } from "@/features/product-action";
 import { proposeProject } from "@/features/project-action";
+import { getQaGroups } from "@/features/qa-group-action";
+import { isoWeekRange, weekdaysBetween } from "@/lib/load";
 import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 
 type AllocationRow = {
-  user_id: string;
   product_id: string;
   role_on_project: string;
-  days_per_week: string;
   start_date: string;
   end_date: string;
 };
 
 function emptyAllocationRow(productIds: string[]): AllocationRow {
   return {
-    user_id: "",
     product_id: productIds.length === 1 ? productIds[0] : "",
     role_on_project: "QA Tester",
-    days_per_week: "1",
     start_date: "",
     end_date: "",
   };
+}
+
+/** Mon-Fri weekday count within the row's first calendar week, capped at 5 — same computation the Allocation Tool's rebaseline auto-fill uses. */
+function computeDaysPerWeek(startDate: string, endDate: string): number {
+  if (!startDate) return 0;
+  const week = isoWeekRange(new Date(`${startDate}T00:00:00Z`));
+  const windowEnd = endDate && endDate < week.end ? endDate : week.end;
+  if (windowEnd < startDate) return 0;
+  return Math.min(5, weekdaysBetween(startDate, windowEnd));
 }
 
 type ProposeProjectDialogProps = {
@@ -67,14 +74,19 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow([])]);
   const queryClient = useQueryClient();
 
-  const { data: testers } = useQuery({
-    queryKey: ["assignable-profiles"],
-    queryFn: () => getAssignableProfiles(),
+  const { data: qaLeadCandidates } = useQuery({
+    queryKey: ["qa-lead-candidates"],
+    queryFn: () => getQaLeadCandidates(),
   });
 
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: () => getProducts(),
+  });
+
+  const { data: qaGroups } = useQuery({
+    queryKey: ["qa-groups"],
+    queryFn: () => getQaGroups(),
   });
 
   const mutation = useMutation({
@@ -94,10 +106,10 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           support_request_form_link: itemType === "support_testing" ? supportRequestFormLink : undefined,
         },
         allocations: rows.map((row) => ({
-          user_id: row.user_id,
+          user_id: testersForProduct(row.product_id)[0]?.id ?? "",
           product_id: row.product_id,
           role_on_project: row.role_on_project,
-          days_per_week: Number(row.days_per_week),
+          days_per_week: computeDaysPerWeek(row.start_date, row.end_date),
           start_date: row.start_date,
           end_date: row.end_date || undefined,
         })),
@@ -122,19 +134,14 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
-  /** QA members eligible for a row's product: active testers in that product's owning QA Group, or everyone if the product has no group assigned. */
+  /** The single QA Lead of a row's product's owning QA Group — the only assignee a PM proposal can name; empty if the product has no group or the group has no lead. */
   function testersForProduct(productId: string) {
     const product = (products ?? []).find((p) => p.id === productId);
-    if (!product?.qa_group_id) return testers ?? [];
-    return (testers ?? []).filter((t) => t.qa_group_id === product.qa_group_id);
-  }
-
-  function handleRowProductChange(index: number, productId: string) {
-    const eligibleIds = new Set(testersForProduct(productId).map((t) => t.id));
-    updateRow(index, {
-      product_id: productId,
-      user_id: eligibleIds.has(rows[index].user_id) ? rows[index].user_id : "",
-    });
+    if (!product?.qa_group_id) return [];
+    const group = (qaGroups ?? []).find((g) => g.id === product.qa_group_id);
+    if (!group?.lead_user_id) return [];
+    const lead = (qaLeadCandidates ?? []).find((t) => t.id === group.lead_user_id);
+    return lead ? [lead] : [];
   }
 
   /** Null when row's dates are valid (within [startDate, endDate] and End >= Start); otherwise the message to show. */
@@ -155,6 +162,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   }
 
   const hasRowDateErrors = rows.some((row) => rowDateError(row) !== null);
+  const hasRowMissingTester = rows.some((row) => testersForProduct(row.product_id).length === 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -298,32 +306,19 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
               <div key={index} className="space-y-1 rounded-md border p-3">
                 <div className="grid grid-cols-14 items-end gap-2">
                 <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Tester</Label>
-                  <Select
-                    value={row.user_id}
-                    onValueChange={(value) => updateRow(index, { user_id: value })}
-                    disabled={!row.product_id}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rowTesters.map((tester) => (
-                        <SelectItem key={tester.id} value={tester.id}>
-                          {tester.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {row.product_id && rowTesters.length === 0 && (
-                    <p className="text-xs text-muted-foreground">No QA in this product&apos;s group.</p>
-                  )}
+                  <Label className="text-xs">Tester (QA Lead)</Label>
+                  <Input
+                    value={
+                      rowTesters[0]?.name ?? (row.product_id ? "No QA Lead in this group" : "Select a product")
+                    }
+                    disabled
+                  />
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Product</Label>
                   <Select
                     value={row.product_id}
-                    onValueChange={(value) => handleRowProductChange(index, value)}
+                    onValueChange={(value) => updateRow(index, { product_id: value })}
                     disabled={productIds.length === 0}
                   >
                     <SelectTrigger className="w-full">
@@ -346,14 +341,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Days/Wk</Label>
-                  <Input
-                    type="number"
-                    min={0.5}
-                    step={0.5}
-                    value={row.days_per_week}
-                    onChange={(e) => updateRow(index, { days_per_week: e.target.value })}
-                    required
-                  />
+                  <Input value={computeDaysPerWeek(row.start_date, row.end_date) || "—"} disabled />
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Start</Label>
@@ -402,6 +390,7 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
                 mutation.isPending ||
                 productIds.length === 0 ||
                 hasRowDateErrors ||
+                hasRowMissingTester ||
                 (itemType === "support_testing" && !supportRequestFormLink.trim())
               }
             >
