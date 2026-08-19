@@ -37,16 +37,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BulkAssignDialog } from "@/components/allocations/bulk-assign-dialog";
 import { ProjectAssignmentsDialog } from "@/components/projects/project-assignments-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectRebaselineDialog } from "@/components/projects/project-rebaseline-dialog";
-import { deleteProject, withdrawProjectProposal } from "@/features/project-action";
+import { assignProjectPm, deleteProject, withdrawProjectProposal } from "@/features/project-action";
 import { formatDate } from "@/lib/format";
 import type { ItemType, Priority, Project, ProjectStatus } from "@/lib/project";
-import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
+import { QA_LEAD_ROLES, type Profile, type ProfileRole } from "@/lib/profile";
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   to_do: "To Do",
@@ -80,6 +87,7 @@ const PRIORITY_BADGE_CLASS: Record<Priority, string> = {
 
 export type ProjectSortKey =
   | "name"
+  | "pm"
   | "assigned"
   | "product"
   | "progress"
@@ -130,6 +138,8 @@ type ProjectTableProps = {
   role: ProfileRole;
   currentProfileId: string;
   productNameById: Map<string, string>;
+  pmNameById: Map<string, string>;
+  projectManagers: Profile[];
   assignmentCounts: Record<string, number>;
   sortKey: ProjectSortKey;
   sortDirection: "asc" | "desc";
@@ -144,6 +154,8 @@ export function ProjectTable({
   role,
   currentProfileId,
   productNameById,
+  pmNameById,
+  projectManagers,
   assignmentCounts,
   sortKey,
   sortDirection,
@@ -168,7 +180,16 @@ export function ProjectTable({
   const canEdit = QA_LEAD_ROLES.includes(role);
   const canPropose = role === "project_manager";
   const showActions = canEdit || canPropose;
-  const columnCount = showActions ? 11 : 10;
+  const columnCount = showActions ? 12 : 11;
+
+  const assignPmMutation = useMutation({
+    mutationFn: ({ projectId, pmId }: { projectId: string; pmId: string | null }) => assignProjectPm(projectId, pmId),
+    onSuccess: () => {
+      toast.success("PM updated");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: deleteProject,
@@ -213,6 +234,7 @@ export function ProjectTable({
                 onSort={onSortChange}
                 className="w-50 pl-6"
               />
+              <SortableHeader label="PM Name" sortKey="pm" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
               <SortableHeader label="Assigned" sortKey="assigned" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
               <SortableHeader label="Products" sortKey="product" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
               <SortableHeader label="Progress" sortKey="progress" activeKey={sortKey} direction={sortDirection} onSort={onSortChange} />
@@ -238,6 +260,7 @@ export function ProjectTable({
               Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell className="pl-6"><Skeleton className="h-4 w-50" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-14" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -295,6 +318,32 @@ export function ProjectTable({
                       <Badge variant="outline" className="ml-2 border-amber-200 bg-amber-50 text-amber-700">
                         Rebaseline Pending
                       </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {role === "qa_member" ? (
+                      <span className="text-sm text-muted-foreground">
+                        {project.pm_id ? (pmNameById.get(project.pm_id) ?? "—") : "—"}
+                      </span>
+                    ) : (
+                      <Select
+                        value={project.pm_id ?? "unassigned"}
+                        onValueChange={(value) =>
+                          assignPmMutation.mutate({ projectId: project.id, pmId: value === "unassigned" ? null : value })
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-36 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          {projectManagers.map((pm) => (
+                            <SelectItem key={pm.id} value={pm.id}>
+                              {pm.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     )}
                   </TableCell>
                   <TableCell>
