@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,37 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProductMultiSelect } from "@/components/products/product-multi-select";
-import { getQaLeadCandidates } from "@/features/profile-action";
 import { getProducts } from "@/features/product-action";
 import { proposeProject } from "@/features/project-action";
-import { getQaGroups } from "@/features/qa-group-action";
-import { isoWeekRange, weekdaysBetween } from "@/lib/load";
 import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
-
-type AllocationRow = {
-  product_id: string;
-  role_on_project: string;
-  start_date: string;
-  end_date: string;
-};
-
-function emptyAllocationRow(productIds: string[]): AllocationRow {
-  return {
-    product_id: productIds.length === 1 ? productIds[0] : "",
-    role_on_project: "QA Tester",
-    start_date: "",
-    end_date: "",
-  };
-}
-
-/** Mon-Fri weekday count within the row's first calendar week, capped at 5 — same computation the Allocation Tool's rebaseline auto-fill uses. */
-function computeDaysPerWeek(startDate: string, endDate: string): number {
-  if (!startDate) return 0;
-  const week = isoWeekRange(new Date(`${startDate}T00:00:00Z`));
-  const windowEnd = endDate && endDate < week.end ? endDate : week.end;
-  if (windowEnd < startDate) return 0;
-  return Math.min(5, weekdaysBetween(startDate, windowEnd));
-}
 
 type ProposeProjectDialogProps = {
   open: boolean;
@@ -71,22 +42,11 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
   const [jiraLink, setJiraLink] = useState("https://jpnqa.atlassian.net/jira");
   const [jivaLink, setJivaLink] = useState("https://jiva.jalin.co.id/");
   const [supportRequestFormLink, setSupportRequestFormLink] = useState("");
-  const [rows, setRows] = useState<AllocationRow[]>([emptyAllocationRow([])]);
   const queryClient = useQueryClient();
-
-  const { data: qaLeadCandidates } = useQuery({
-    queryKey: ["qa-lead-candidates"],
-    queryFn: () => getQaLeadCandidates(),
-  });
 
   const { data: products } = useQuery({
     queryKey: ["products"],
     queryFn: () => getProducts(),
-  });
-
-  const { data: qaGroups } = useQuery({
-    queryKey: ["qa-groups"],
-    queryFn: () => getQaGroups(),
   });
 
   const mutation = useMutation({
@@ -105,14 +65,6 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
           jiva_link: jivaLink,
           support_request_form_link: itemType === "support_testing" ? supportRequestFormLink : undefined,
         },
-        allocations: rows.map((row) => ({
-          user_id: testersForProduct(row.product_id)[0]?.id ?? "",
-          product_id: row.product_id,
-          role_on_project: row.role_on_project,
-          days_per_week: computeDaysPerWeek(row.start_date, row.end_date),
-          start_date: row.start_date,
-          end_date: row.end_date || undefined,
-        })),
       }),
     onSuccess: () => {
       toast.success("Proposal submitted — pending QA Lead approval");
@@ -124,45 +76,10 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
       setJiraLink("https://jpnqa.atlassian.net/jira");
       setJivaLink("https://jiva.jalin.co.id/");
       setSupportRequestFormLink("");
-      setRows([emptyAllocationRow([])]);
       onOpenChange(false);
     },
     onError: (error: Error) => toast.error(error.message),
   });
-
-  function updateRow(index: number, patch: Partial<AllocationRow>) {
-    setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-  }
-
-  /** The single QA Lead of a row's product's owning QA Group — the only assignee a PM proposal can name; empty if the product has no group or the group has no lead. */
-  function testersForProduct(productId: string) {
-    const product = (products ?? []).find((p) => p.id === productId);
-    if (!product?.qa_group_id) return [];
-    const group = (qaGroups ?? []).find((g) => g.id === product.qa_group_id);
-    if (!group?.lead_user_id) return [];
-    const lead = (qaLeadCandidates ?? []).find((t) => t.id === group.lead_user_id);
-    return lead ? [lead] : [];
-  }
-
-  /** Null when row's dates are valid (within [startDate, endDate] and End >= Start); otherwise the message to show. */
-  function rowDateError(row: AllocationRow): string | null {
-    if (!row.start_date) return null;
-    if ((startDate && row.start_date < startDate) || (endDate && row.start_date > endDate)) {
-      return "Start must fall within the project's dates.";
-    }
-    if (row.end_date) {
-      if ((endDate && row.end_date > endDate) || (startDate && row.end_date < startDate)) {
-        return "End must fall within the project's dates.";
-      }
-      if (row.end_date < row.start_date) {
-        return "End must be on or after Start.";
-      }
-    }
-    return null;
-  }
-
-  const hasRowDateErrors = rows.some((row) => rowDateError(row) !== null);
-  const hasRowMissingTester = rows.some((row) => testersForProduct(row.product_id).length === 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -290,107 +207,12 @@ export function ProposeProjectDialog({ open, onOpenChange }: ProposeProjectDialo
             </div>
           )}
 
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Tester Assignments</Label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setRows((r) => [...r, emptyAllocationRow(productIds)])}>
-                <Plus className="size-4" />
-                Add tester
-              </Button>
-            </div>
-
-            {rows.map((row, index) => {
-              const rowTesters = testersForProduct(row.product_id);
-              const dateError = rowDateError(row);
-              return (
-              <div key={index} className="space-y-1 rounded-md border p-3">
-                <div className="grid grid-cols-14 items-end gap-2">
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Tester (QA Lead)</Label>
-                  <Input
-                    value={
-                      rowTesters[0]?.name ?? (row.product_id ? "No QA Lead in this group" : "Select a product")
-                    }
-                    disabled
-                  />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Product</Label>
-                  <Select
-                    value={row.product_id}
-                    onValueChange={(value) => updateRow(index, { product_id: value })}
-                    disabled={productIds.length === 0}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(products ?? [])
-                        .filter((product) => productIds.includes(product.id))
-                        .map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Role</Label>
-                  <Input value={row.role_on_project} onChange={(e) => updateRow(index, { role_on_project: e.target.value })} required />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Days/Wk</Label>
-                  <Input value={computeDaysPerWeek(row.start_date, row.end_date) || "—"} disabled />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Start</Label>
-                  <Input
-                    type="date"
-                    value={row.start_date}
-                    onChange={(e) => updateRow(index, { start_date: e.target.value })}
-                    min={startDate || undefined}
-                    max={endDate || undefined}
-                    required
-                  />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">End</Label>
-                  <Input
-                    type="date"
-                    value={row.end_date}
-                    onChange={(e) => updateRow(index, { end_date: e.target.value })}
-                    min={row.start_date || startDate || undefined}
-                    max={endDate || undefined}
-                  />
-                </div>
-                <div className="col-span-2 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={rows.length === 1}
-                    onClick={() => setRows((r) => r.filter((_, i) => i !== index))}
-                    aria-label="Remove tester row"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-                </div>
-                {dateError && <p className="text-xs text-rose-600">{dateError}</p>}
-              </div>
-              );
-            })}
-          </div>
-
           <DialogFooter>
             <Button
               type="submit"
               disabled={
                 mutation.isPending ||
                 productIds.length === 0 ||
-                hasRowDateErrors ||
-                hasRowMissingTester ||
                 (itemType === "support_testing" && !supportRequestFormLink.trim())
               }
             >
