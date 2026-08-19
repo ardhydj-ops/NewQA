@@ -23,6 +23,7 @@ import { ProposeProjectDialog } from "@/components/projects/propose-project-dial
 import { getApprovedAllocationCountsByProject } from "@/features/allocation-action";
 import { getProducts } from "@/features/product-action";
 import { getProjectById, getProjects } from "@/features/project-action";
+import { getProfiles, getProjectManagers } from "@/features/profile-action";
 import { getQaGroups } from "@/features/qa-group-action";
 import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
@@ -64,7 +65,7 @@ export function ProjectsPageContent({
   const [qaGroupFilter, setQaGroupFilter] = useState(() => (role === "qa_lead" ? (qaGroupId ?? "") : ""));
   const [typeFilter, setTypeFilter] = useState<ItemType | "">("");
   const [priorityFilter, setPriorityFilter] = useState<Priority | "">("");
-  const [sortKey, setSortKey] = useState<ProjectSortKey>("assigned");
+  const [sortKey, setSortKey] = useState<ProjectSortKey>(() => (role === "project_manager" ? "pm" : "assigned"));
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [createOpen, setCreateOpen] = useState(false);
   const [proposeOpen, setProposeOpen] = useState(false);
@@ -144,6 +145,17 @@ export function ProjectsPageContent({
   });
   const qaGroupNameById = new Map((qaGroups ?? []).map((g) => [g.id, g.name]));
 
+  const { data: profiles } = useQuery({
+    queryKey: ["profiles"],
+    queryFn: () => getProfiles(),
+  });
+  const pmNameById = new Map((profiles ?? []).map((p) => [p.id, p.name]));
+
+  const { data: projectManagers } = useQuery({
+    queryKey: ["project-managers"],
+    queryFn: () => getProjectManagers(),
+  });
+
   const { data: assignmentCounts } = useQuery({
     queryKey: ["allocation-counts", "approved"],
     queryFn: () => getApprovedAllocationCountsByProject(),
@@ -166,6 +178,17 @@ export function ProjectsPageContent({
     switch (sortKey) {
       case "name":
         return a.name.localeCompare(b.name) * direction;
+      case "pm": {
+        const aMine = a.pm_id === currentProfileId ? 0 : 1;
+        const bMine = b.pm_id === currentProfileId ? 0 : 1;
+        if (aMine !== bMine) return (aMine - bMine) * direction;
+        const nameA = a.pm_id ? pmNameById.get(a.pm_id) : undefined;
+        const nameB = b.pm_id ? pmNameById.get(b.pm_id) : undefined;
+        if (!nameA && !nameB) return 0;
+        if (!nameA) return 1;
+        if (!nameB) return -1;
+        return nameA.localeCompare(nameB) * direction;
+      }
       case "assigned":
         return ((assignmentCounts?.[a.id] ?? 0) - (assignmentCounts?.[b.id] ?? 0)) * direction;
       case "product": {
@@ -357,6 +380,8 @@ export function ProjectsPageContent({
         role={role}
         currentProfileId={currentProfileId}
         productNameById={productNameById}
+        pmNameById={pmNameById}
+        projectManagers={projectManagers ?? []}
         assignmentCounts={assignmentCounts ?? {}}
         sortKey={sortKey}
         sortDirection={sortDirection}
