@@ -23,7 +23,7 @@ import { ProposeProjectDialog } from "@/components/projects/propose-project-dial
 import { getApprovedAllocationCountsByProject } from "@/features/allocation-action";
 import { getProducts } from "@/features/product-action";
 import { getProjectById, getProjects } from "@/features/project-action";
-import { getProfiles, getProjectManagers } from "@/features/profile-action";
+import { getProfiles } from "@/features/profile-action";
 import { getQaGroups } from "@/features/qa-group-action";
 import type { ItemType, Priority, ProjectStatus } from "@/lib/project";
 import { QA_LEAD_ROLES, type ProfileRole } from "@/lib/profile";
@@ -150,11 +150,6 @@ export function ProjectsPageContent({
     queryFn: () => getProfiles(),
   });
   const pmNameById = new Map((profiles ?? []).map((p) => [p.id, p.name]));
-
-  const { data: projectManagers } = useQuery({
-    queryKey: ["project-managers"],
-    queryFn: () => getProjectManagers(),
-  });
 
   const { data: assignmentCounts } = useQuery({
     queryKey: ["allocation-counts", "approved"],
@@ -381,7 +376,6 @@ export function ProjectsPageContent({
         currentProfileId={currentProfileId}
         productNameById={productNameById}
         pmNameById={pmNameById}
-        projectManagers={projectManagers ?? []}
         assignmentCounts={assignmentCounts ?? {}}
         sortKey={sortKey}
         sortDirection={sortDirection}
