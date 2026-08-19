@@ -53,7 +53,7 @@ export type ProposedAllocationInput = z.infer<typeof ProposedAllocationInput>;
 
 export const ProjectProposalInput = z.object({
   project: ProjectProposalProjectInput,
-  allocations: z.array(ProposedAllocationInput).min(1, "Add at least one tester assignment"),
+  allocations: z.array(ProposedAllocationInput).default([]),
 });
 export type ProjectProposalInput = z.infer<typeof ProjectProposalInput>;
 

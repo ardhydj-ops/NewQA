@@ -72,6 +72,18 @@ export async function getQaLeadCandidates(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
+export async function getProjectManagers(): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("is_active", true)
+    .eq("role", "project_manager")
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Profile[];
+}
+
 export async function createProfile(
   input: unknown,
 ): Promise<{ profile: Profile; tempPassword: string }> {

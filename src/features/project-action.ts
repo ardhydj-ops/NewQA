@@ -272,6 +272,15 @@ export async function deleteProject(id: string): Promise<{ success: true }> {
   return { success: true };
 }
 
+export async function assignProjectPm(projectId: string, pmId: string | null): Promise<{ success: true }> {
+  await requireRole([...QA_LEAD_ROLES, "project_manager"]);
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("projects").update({ pm_id: pmId }).eq("id", projectId);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
 export async function proposeProject(input: unknown): Promise<{ success: true }> {
   const profile = await requireRole(["project_manager"]);
 
@@ -296,6 +305,7 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
       jira_link: parsed.data.project.jira_link,
       jiva_link: parsed.data.project.jiva_link,
       support_request_form_link: parsed.data.project.support_request_form_link ?? null,
+      pm_id: profile.id,
       approval_status: "pending",
       proposed_by: profile.id,
     })
@@ -314,23 +324,25 @@ export async function proposeProject(input: unknown): Promise<{ success: true }>
     throw new Error(productsError.message);
   }
 
-  const { error: allocationsError } = await admin.from("allocations").insert(
-    parsed.data.allocations.map((allocation) => ({
-      user_id: allocation.user_id,
-      project_id: project.id,
-      product_id: allocation.product_id,
-      role_on_project: allocation.role_on_project,
-      days_per_week: allocation.days_per_week,
-      start_date: allocation.start_date,
-      end_date: allocation.end_date ?? null,
-      approval_status: "pending",
-      proposed_by: profile.id,
-    })),
-  );
+  if (parsed.data.allocations.length > 0) {
+    const { error: allocationsError } = await admin.from("allocations").insert(
+      parsed.data.allocations.map((allocation) => ({
+        user_id: allocation.user_id,
+        project_id: project.id,
+        product_id: allocation.product_id,
+        role_on_project: allocation.role_on_project,
+        days_per_week: allocation.days_per_week,
+        start_date: allocation.start_date,
+        end_date: allocation.end_date ?? null,
+        approval_status: "pending",
+        proposed_by: profile.id,
+      })),
+    );
 
-  if (allocationsError) {
-    await admin.from("projects").delete().eq("id", project.id);
-    throw new Error(allocationsError.message);
+    if (allocationsError) {
+      await admin.from("projects").delete().eq("id", project.id);
+      throw new Error(allocationsError.message);
+    }
   }
 
   return { success: true };
